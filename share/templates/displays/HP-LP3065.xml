@@ -1,0 +1,46 @@
+<?xml version="1.0" ?>
+
+<!--
+
+LP3065 is HP's top-end 30" LCD monitor (at the time of writing this).
+
+The LP 3065 supports resolutions upto 2560x1600 @ 60Hz.
+
+-->
+
+<display
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/displayconfig.xsd" >
+	<model>HP LP3065</model>
+	<input>digital</input>
+	<edid>/opt/vizstack/share/templates/displays/edids/HP-LP3065.bin</edid>
+	<edid_name>HP LP3065</edid_name>
+	<dimensions>
+		<width>640</width> <!-- you get this from the "Maximum Image" size on the EDID -->
+		<height>400</height>
+		<bezel><!-- Quickspecs says overall size is 692 x 455 -->
+			<left>26</left> 
+			<right>26</right>
+			<bottom>27.5</bottom>
+			<top>27.5</top>
+		</bezel>
+	</dimensions>
+	<default_mode>2560x1600_60</default_mode>
+	<mode>
+		<type>edid</type>
+		<alias>2560x1600_60</alias>
+		<alias>2560x1600</alias>
+		<width>2560</width>
+		<height>1600</height>
+		<refresh>60</refresh>
+	</mode>
+	<mode>
+		<type>edid</type>
+		<alias>1280x800_60</alias>
+		<alias>1280x800</alias>
+		<width>1280</width>
+		<height>800</height>
+		<refresh>60</refresh>
+	</mode>
+</display>

@@ -1,0 +1,322 @@
+
+The System State Manager is a daemon that does the following tasks
+
+  1. Allows allocation/cleanup of visualization jobs. Maintains the notion of visualization jobs
+      - interfaces with the meta-scheduler and manages scheduler resources/jobs
+	  - keeps track of what visualization resources are allocated to which jobs
+
+  2. Maintains the dynamic state of visualization jobs
+      - The X server configuration for each X server
+	  - which X servers are running, along-with runtime configuration
+
+  3. Supports querying of information about
+      - visualization jobs
+	  - X server configuration
+
+  4. Supports updating X server configuration
+
+User access is controlled in these operations.  An external entity may communicate with the SSM only via sockets. An XML based protocol is used in the communication.
+
+In the XML protocol, the SSM supports the following requests --
+
+   1. Allocate - allocate visualization resources into a visualization job
+   2. Deallocate - deallocate a visualization job, freeing all the allocated resources and cleaning them up.
+   3. GetAllocation - get all details of a visualization job, effectively ending up in a position of control.
+   4. QueryAllocation - get information about visualization jobs
+
+   5. QueryXConfig - get configuration information about X server(s)
+   6. UpdateXConfig - change configuration of X server(s). This requires that the X server(s) are not running.
+
+   7. WaitXState - wait till one or more X servers reach a certain state (UP
+   or DOWN)
+
+The SSM also supports another message. This message can come only from a
+special type of client called an X client. The X client cannot send any other
+message.
+   8. UpdateXState - mark an X server as being UP or DOWN
+
+"Allocate" --
+
+<ssm>
+	<allocate>
+		<attach>0|1</attach>
+		<resdesc>spec - serialized resource representation</resdesc>
+		...
+		<resdesc>spec - serialized resource representation</resdesc>
+		<search_node>node1</search_node>
+		<search_node>node2</search_node>
+	</allocate>
+</ssm>
+
+Resource can be a GPU, X Server or Resource Group. If no search nodes are specified, then 
+all nodes are candidate nodes. If some nodes are specified, then those are chosen from.
+
+Reply with
+
+<ssm>
+	<response>
+		<status>0</status>
+		<allocId>10</allocId>
+		<message>success</message>
+		<!-- information about the allocation, same as what you'd get if you called the information part. This will not exist on failure -->
+		<allocation>
+			<resource>
+				<value>serialization of allocation corresponding to first
+				request here</value>
+			</resource>
+			<resource>
+				<value>serialization of allocation corresponding to seconf
+				request here</value>
+			</resource>
+			... and so on
+		</allocation>
+	</response>
+</ssm>
+
+"Deallocate" --
+
+<ssm>
+	<deallocate>
+		<allocId>10</allocId>
+	</deallocate>
+</ssm>
+
+Reply with
+
+<ssm>
+	<response>
+		<status>0</status>
+		<allocId>10</allocId>
+		<message>success</message>
+	</response>
+</ssm>
+
+"GetAllocation" --
+
+Get all resource details of an allocation. Given the ID, this will return the
+current state of the allocation. With all these details, the client can end up
+controlling the allocation.
+
+<ssm>
+	<get_allocation>
+		<allocId>10</allocId>
+	</get_allocation>
+</ssm>
+
+"QueryAllocation" --
+
+Returns the resources allocated to one/more allocations. The complete state of
+the allocation is not returned. So it is not possible to determine the exact 
+configuration with which an allocation is running by the use of this message.
+
+There are two forms - one gets the details of a single allocation.
+
+<ssm>
+	<query_allocation>
+		<allocId>10</allocId>
+	</query_allocation>
+</ssm>
+
+Reply with
+
+<ssm>
+	<response>
+		<status>0</status>
+		<message>success</message>
+		<return_value>
+			<allocation>
+				<allocId>10</allocId>
+				<userName>shree</userName>
+				<resources>
+					minimum serialization of all resources allocated to this
+					allocation
+				<resources>
+			</allocation>
+		<return_value>
+	<response>
+</ssm>
+
+The other form returns all allocations
+
+<ssm>
+	<query_allocation>
+		<allocId>10</allocId>
+	</query_allocation>
+</ssm>
+
+Reply with
+
+<ssm>
+	<response>
+		<status>0</status>
+		<message>success</message>
+		<return_value>
+			<allocation>
+				details of first allocation
+			</allocation>
+			<allocation>
+				details of second allocation
+			</allocation>
+			... and so on.
+		<return_value>
+	<response>
+</ssm>
+
+Note that _not_ having allocations is not an error. However, searching for a
+non-existing allocation will result in an error.
+
+"QueryResource" --
+
+This provides a generic "query-all" functionality for Viz Resources. Note that
+this queries resources, not allocations.
+
+Examples
+<ssm>
+	<query_resource>
+		<server>
+			<hostname>alpha13</hostname>
+			<server_number>0</server_number>
+		</server>
+	</query>
+</ssm>
+
+The result would 
+
+<ssm>
+	<response>
+			<status>0</status>
+			<message>success</message>
+			<return_value>
+				serialization of the X server :0 on alpha13. Serialization is
+				from the "resource" perspective.
+			</return_value>
+	</response>
+</ssm>
+
+"UpdateServerConfig" --
+
+Modify the configuration of one/more X servers atomically. All the servers
+need to be in the same allocation.
+
+<ssm>
+	<update_serverconfig>
+		<allocId>10</allocId> <!-- need to specify allocation id
+		<server>
+			first server config
+		</server>
+		<server>
+			second server config
+		</server>
+		... and so on....
+	</update_serverconfig>
+</ssm>
+
+Response would be --
+
+<ssm>
+	<response>
+			<status>0</status>
+			<message>Success</message>
+	</response>
+</ssm>
+
+OR
+
+<ssm>
+	<response>
+			<status>1</status>
+			<message>(hopefully) elaborate error message about what was wrong.</message>
+	</response>
+</ssm>
+
+"GetServerConfig" --
+
+Retrieve the configuration of a single X server. Note that no filters are
+allowed here - only complete references are allowed.
+
+<ssm>
+	<get_serverconfig>
+		<server>
+			<hostname>alpha13</hostname>
+			<server_number>0</server_number>
+		<server>
+	</get_serverconfig>
+</ssm>
+
+Return value would be
+
+<ssm>
+	<response>
+		<status>0</status>
+		<message>Success</message>
+		<return_value>
+			<server>
+					serialization of specific X server here. This contains the
+					entire config
+			</server>
+		</return_value>
+	</response>
+</ssm>
+
+"WaitXState" --
+
+Waits till one or more servers in an allocation reach a certain state. You
+may specify a timeout as well. If you don't specify any X servers, then all
+the X servers in the allocation will be waited for.
+
+<ssm>
+	<wait_x_state>
+		<allocId>nn</allocId>
+		<newState>0|1</newState>
+		<timeout>time to wait</timeout>
+		<server>serialization</server>
+		<server>serialization</server>
+		<server>serialization</server>
+	</wait_x_state>
+</ssm>
+
+Return value would be 
+
+<ssm>
+	<response>
+		<status>0|1|2</status> <!-- 0 => success, 1=>error, 2=>timeout -->
+		<message>success or failure</message>
+	</response>
+</ssm>
+
+"UpdateXAvailability" --
+
+Update the running/not status of an X server. This message is the only allowed
+message from an X client.
+
+<ssm>
+	<update_x_avail>
+		<newState>0|1</newState>
+		<server>
+			deserialization here
+		</server>
+	</update_x_avail>
+</ssm>
+
+The SSM does not reply to this message.
+
+"Stop X Server" -- Stops one/more running X servers in specific allocation. 
+If no X servers are specified, then all the X servers in the allocation are 
+stopped.
+
+This is implemented internally by closing the X server client socket. So 
+calling this does not guarantee that the X servers will have stopped when it
+returns.
+
+A WaitXState following this call will wait till the X servers really stop.
+A sequence of these calls provides an easy, controlled way to stop the X servers and
+wait till they've gone away.
+
+<ssm>
+	<stop_x_server>
+		<allocId>nn</allocId>
+		<server>serialization</server>
+		<server>serialization</server>
+		...
+	</stop_x_server>
+</ssm>

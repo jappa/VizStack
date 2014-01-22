@@ -1,0 +1,45 @@
+<?xml version="1.0" ?>
+<!--
+Dell 3008WFP Monitor
+
+30 inch widescreen flat panel monitor. Template courtesy Simon Fowler(CSIRO).
+
+The bezels were measured by hand.
+-->
+
+<display
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/displayconfig.xsd" >
+	<model>Dell 3008WFP</model>
+	<input>digital</input>
+	<edid>/opt/vizstack/share/templates/displays/edids/Dell-3008WFP.bin</edid>
+	<edid_name>Dell 3008WFP</edid_name>
+	<dimensions>
+		<width>650</width> <!-- you get this from the "Maximum Image" size on the EDID -->
+		<height>410</height>
+		<bezel><!-- Quickspecs says overall size is 692 x 455 -->
+			<left>27</left> 
+			<right>27</right>
+			<bottom>27</bottom>
+			<top>30</top>
+		</bezel>
+	</dimensions>
+	<default_mode>2560x1600_60</default_mode>
+	<mode>
+		<type>edid</type>
+		<alias>2560x1600_60</alias>
+		<alias>2560x1600</alias>
+		<width>2560</width>
+		<height>1600</height>
+		<refresh>60</refresh>
+	</mode>
+	<mode>
+		<type>edid</type>
+		<alias>1920x1200_60</alias>
+		<alias>1920x1200</alias>
+		<width>1920</width>
+		<height>1200</height>
+		<refresh>60</refresh>
+	</mode>
+</display>

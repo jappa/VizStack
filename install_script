@@ -1,0 +1,45 @@
+#!/bin/bash
+
+# VizStack - A Framework to manage visualization resources
+
+# Copyright (C) 2009-2010 Hewlett-Packard
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+nodes=$1
+all_nodes=$*
+filename=vizstack-0.4-0.x86_64.rpm
+
+if test -f /usr/src/redhat/RPMS/x86_64/$filename; then
+    # RHEL path
+    filepath=/usr/src/redhat/RPMS/x86_64/$filename
+else
+    # SLES path
+    filepath=/usr/src/packages/RPMS/x86_64/$filename
+fi
+
+cd /tmp # get rid of "directory unknown" kind of errors
+for node in $all_nodes; do
+	echo ""
+	echo "Processing $node"
+	echo ""
+	scp $filepath $node:/tmp
+	echo "Removing VizStack RPM"
+	#srun -w $node rpm -e vizstack
+	ssh $node rpm -e vizstack
+	echo "Installing VizStack RPM"
+	#srun -w $node rpm -ivh /tmp/$filename
+	ssh $node rpm -ivh /tmp/$filename
+done

@@ -1,0 +1,579 @@
+<?xml version="1.0" ?>
+<resourcegroupconfig
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/resourcegroupconfig.xsd" >
+
+	<!-- Single Tile from Single GPU -->
+	<resourceGroup>
+		<name>test-1gpu-1node-1x1</name>
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[1,1];
+			num_blocks=[1,1];
+			display_device="LP2065";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Two horizontal Tiles from Single GPU -->
+	<resourceGroup>
+		<name>test-1gpu-1node-2x1</name>
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[2,1];
+			num_blocks=[1,1];
+			display_device="LP2065";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Two vertical Tiles from Single GPU -->
+	<resourceGroup>
+		<name>test-1gpu-1node-1x2</name>
+		<handler>tiled_display</handler>
+		<handler_params>	
+			block_type="gpu";
+			block_display_layout=[1,2];
+			num_blocks=[1,1];
+			display_device="LP2065";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Two vertical Tiles from Single GPU, each in portrait mode. This helps one watch a consistent image without rotating the displays -->
+	<resourceGroup>
+		<name>test-1gpu-1node-1x2-portrait</name> <!-- This does not work as expected -->
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[1,2];
+			num_blocks=[1,1];
+			display_device="LP2065";
+			rotate="portrait";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Two GPUs from a single node, 2x1 -->
+	<resourceGroup>
+		<name>test-2gpu-1node-2x1</name> 
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[1,1];
+			num_blocks=[2,1];
+			display_device="LP2065";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Two GPUs from a single node, 1x2 -->
+	<resourceGroup>
+		<name>test-2gpu-1node-1x2</name> 
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[1,1];
+			num_blocks=[1,2];
+			display_device="LP2065";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Two GPUs from a single node, 1x2, portrait mode -->
+	<resourceGroup>
+		<name>test-2gpu-1node-1x2-portrait</name> 
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[1,1];
+			num_blocks=[1,2];
+			display_device="LP2065";
+			rotate="portrait";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Two GPUs from two nodes, 2x1 -->
+	<resourceGroup>
+		<name>test-2gpu-2node-2x1</name> 
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[1,1];
+			num_blocks=[2,1];
+			display_device="LP2065";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+			</reslist>
+			<reslist>
+				<res><serverconfig><hostname>viz4.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Two GPUs from two nodes, 1x2 -->
+	<resourceGroup>
+		<name>test-2gpu-2node-1x2</name> 
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[1,1];
+			num_blocks=[1,2];
+			display_device="LP2065";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+			</reslist>
+			<reslist>
+				<res><serverconfig><hostname>viz4.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Two GPUs from two nodes, 1x2, portrait -->
+	<resourceGroup>
+		<name>test-2gpu-2node-1x2-portrait</name> 
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[1,1];
+			num_blocks=[1,2];
+			display_device="LP2065";
+			rotate="portrait";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+			</reslist>
+			<reslist>
+				<res><serverconfig><hostname>viz4.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Two GPUs from a single node, 2x2 -->
+	<resourceGroup>
+		<name>test-2gpu-1node-2x2</name> 
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[2,1];
+			num_blocks=[1,2];
+			display_device="LP2065";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+	<!-- Two GPUs from a single node, 2x2, xinerama -->
+	<resourceGroup>
+		<name>test-2gpu-1node-2x2-xinerama</name> 
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[2,1];
+			num_blocks=[1,2];
+			display_device="LP2065";
+			combine_displays=True;
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Two GPUs from a single node, 4x1 -->
+	<resourceGroup>
+		<name>test-2gpu-1node-4x1</name> 
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[2,1];
+			num_blocks=[2,1];
+			display_device="LP2065";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Two GPUs from a single node, 1x4, portrait -->
+	<resourceGroup>
+		<name>test-2gpu-1node-1x4-portrait</name>  <!-- portrait won't work for more with more than 1 displays per GPU -->
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[1,2];
+			num_blocks=[1,2];
+			display_device="LP2065";
+			rotate="portrait";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Two GPUs from two nodes, 4x1 -->
+	<resourceGroup>
+		<name>test-2gpu-2node-4x1</name> 
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[2,1];
+			num_blocks=[2,1];
+			display_device="LP2065";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+			</reslist>
+			<reslist>
+				<res><serverconfig><hostname>viz4.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Two GPUs from two nodes, 2x2 -->
+	<resourceGroup>
+		<name>test-2gpu-2node-2x2</name> 
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[2,1];
+			num_blocks=[1,2];
+			display_device="LP2065";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+			</reslist>
+			<reslist>
+				<res><serverconfig><hostname>viz4.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+	<!-- Two GPUs from two nodes, 1x4 -->
+	<resourceGroup>
+		<name>test-2gpu-2node-1x4</name> 
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[1,2];
+			num_blocks=[1,2];
+			display_device="LP2065";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+			</reslist>
+			<reslist>
+				<res><serverconfig><hostname>viz4.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Four GPUs from two nodes, 4x1 -->
+	<resourceGroup>
+		<name>test-4gpu-2node-4x1</name> 
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[1,1];
+			num_blocks=[4,1];
+			display_device="LP2065";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+			<reslist>
+				<res><serverconfig><hostname>viz4.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Four GPUs from two nodes, 2x2 -->
+	<resourceGroup>
+		<name>test-4gpu-2node-2x2</name> 
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[1,1];
+			num_blocks=[2,2];
+			display_device="LP2065";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+			<reslist>
+				<res><serverconfig><hostname>viz4.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Four GPUs from two nodes, 1x4 -->
+	<resourceGroup>
+		<name>test-4gpu-2node-1x4</name> 
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[1,1];
+			num_blocks=[1,4];
+			display_device="LP2065";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+			<reslist>
+				<res><serverconfig><hostname>viz4.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Four GPUs from two nodes, 4x2 -->
+	<resourceGroup>
+		<name>test-4gpu-2node-4x2</name> 
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[2,1];
+			num_blocks=[2,2];
+			display_device="LP2065";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+			<reslist>
+				<res><serverconfig><hostname>viz4.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Four GPUs from two nodes, 4x2, two groups driving 2x2 side by side. Note the usage of "group_blocks" -->
+	<resourceGroup>
+		<name>test-4gpu-2node-4x2-2x2</name> 
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[2,1];
+			num_blocks=[2,2];
+			display_device="LP2065";
+			group_blocks=[1,2];
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+			<reslist>
+				<res><serverconfig><hostname>viz4.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Four GPUs from two nodes, 4x2, two groups driving 2x2 side by side, Xinerama enabled. 
+	     Note the usage of "group_blocks", and "combine_displays".
+
+	     The only difference between this and the previous sample is the usage of xinerama.
+	     This reduces the number of screens from 4 per server to 1...  -->
+	<resourceGroup>
+		<name>test-4gpu-2node-4x2-2x2-xinerama</name> 
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[2,1];
+			num_blocks=[2,2];
+			display_device="LP2065";
+			group_blocks=[1,2];
+			combine_displays=True;
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+			<reslist>
+				<res><serverconfig><hostname>viz4.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+	<!-- Four GPUs from two nodes, 2x4 -->
+	<resourceGroup>
+		<name>test-4gpu-2node-2x4</name> 
+		<handler>tiled_display</handler>
+		<handler_params>
+			block_type="gpu";
+			block_display_layout=[2,1];
+			num_blocks=[1,4];
+			display_device="LP2065";
+		</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+			<reslist>
+				<res><serverconfig><hostname>viz4.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+
+<!--
+	<resourceGroup>
+		<name>viz3-2x1</name>
+		<handler>tiled_display</handler>
+		<handler_params>block_type="gpu"; block_display_layout=[1,1]; num_blocks=[2,1]; display_device="LP2065";remap_display_outputs=[1];</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz3.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+	<resourceGroup>
+		<name>viz-2x2</name>
+		<handler>tiled_display</handler>
+		<handler_params>block_type="gpu"; block_display_layout=[1,1]; num_blocks=[2,2]; display_device="LP2065";remap_display_outputs=[1];</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz3.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+			<reslist>
+				<res><serverconfig><hostname>viz4.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+-->
+	<!-- The whole 4x3. 4x1 driven from viz5, viz4, and viz3. All DVI ports used -->
+	<resourceGroup>
+		<name>viz-4x2</name>
+		<handler>tiled_display</handler>
+		<handler_params>block_type="gpu"; block_display_layout=[2,1]; num_blocks=[2,2]; display_device="LP2065";</handler_params>
+		<resources>
+			<reslist>
+				<res><serverconfig><hostname>viz5.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+			<reslist>
+				<res><serverconfig><hostname>viz4.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+<!--
+			<reslist>
+				<res><serverconfig><hostname>viz3.ind.hp.com</hostname></serverconfig></res>
+				<res><gpu><index>0</index></gpu></res>
+				<res><gpu><index>1</index></gpu></res>
+			</reslist>
+-->
+		</resources>
+	</resourceGroup>
+</resourcegroupconfig>

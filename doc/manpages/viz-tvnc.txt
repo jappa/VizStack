@@ -1,0 +1,178 @@
+VIZ-TVNC(1)
+===========
+Shree Kumar <shreekumar@users.sourceforge.net>
+
+
+NAME
+----
+viz-tvnc - starts a remote desktop session using TurboVNC, with VirtualGL
+setup for running accelerated OpenGL applications.
+
+
+SYNOPSIS
+--------
+*viz-tvnc* ['OPTIONS']
+
+
+DESCRIPTION
+-----------
+The viz-tvnc(1) command starts an interactive remote desktop session
+for you.
+
+After starting the session, you will need to connect to the session
+using the TurboVNC client. The TurboVNC client is typically installed on
+your desktop or laptop. Inside the TurboVNC session, you may run OpenGL
+applications using VirtualGL(i.e. 'vglrun').
+
+For a better user experience, consider installing and using the
+graphical VizStack Remote Access tools.
+
+RESOURCE ALLOCATION OPTIONS
+---------------------------
+
+*-x, --exclusive*::
+    Request exclusive access to a GPU. By default, a shared GPU is allocated.
+    Use this option to run GPU-intensive applications or for purposes like
+    benchmarking.
+
+*-N, --full-node*::
+    Request exclusive access to a node. This will allocate all resources on
+    a node, not just GPUs. The first GPU on the node will be used to run the
+    OpenGL apps.  Consider using this if your application uses up all GPUs on
+    a node, or uses up other resources (e.g. CPUs).
+
+*--gpu-type*='TYPE'::
+    Use a specific type of GPU 'TYPE' for this remote session. Note that  
+    GPU types will have spaces in it, so you will need to quote the string.
+
+*-b, --batch-mode*::
+    Use this if you are running this script via a batch scheduler. This will 
+    direct the script to allocate resources on the machine where the script
+    gets run by the scheduler.
+
+*-a, --allocate-from*='NODE'::
+    Allocate the GPU on host 'NODE'. If you use this option multiple times, 
+    then a single GPU from one of the specified hosts will be used. Note that
+    the allocation is independent of the order in which the hostnames are 
+    specified on the command line. This option cannot be used if -b is used.
+    The behaviour of this option changes when one of --specific-gpus, or 
+    --specific-nodes is used, as noted below.
+
+ADDITIONAL RESOURCE ALLOCATION OPTIONS
+--------------------------------------
+
+viz-tvnc can allocate additional GPUs for a user to use inside the TurboVNC
+session.
+
+*--specific-gpus*::
+    Use this if you want to allocate specific GPUs. Use the -a option one or 
+    more times to specify the GPUs you need. Note that only the first GPU will 
+    be used to power the VirtualGL/TurboVNC session. The other GPUs will be 
+    setup with X servers, and information about them will be displayed. All 
+    GPUs are allocated with exclusive access.
+
+*--specific-nodes*::
+    Use this if you want to allocate specific nodes. Use the -a option one or 
+    more times to specify the nodes you need. Note that only a matching GPU 
+    on the first node will be used to power the VirtualGL/TurboVNC session. 
+    The other GPUs will be setup with X servers, and information about them 
+    will be displayed. All GPUs are allocated with exclusive access.
+
+TURBO VNC OPTIONS
+-----------------
+
+*-c, --connect-to*='HOST'::
+    This parameter needs to be in the format \"host[:port]". Tells 
+    the started TurboVNC server to connect to a listening TurboVNC 
+    viewer on the given host and port. You need to start the TurboVNC 
+    client in the "listening" mode prior to running this script. If
+    you did not specify a listening port number explicitly, then the
+    client will be listening on port 5500, and this is taken as the
+    default port. Note that failure to connect the TurboVNC server
+    to the specified client is not treated as a failure, and the 
+    desktop session continues to run.
+
+*-g, --geometry*='GEOMETRY'::
+    The resolution to run the desktop at. This can be any '<width>x<height>'
+    formatted value. The geometry does not need to match any display device 
+    resolution. Width needs to be a multiple of 8, and <width>x<height> may 
+    not be lesser than '304x200'. Note that larger resolutions may result in
+    higher network bandwidth usage, CPU utilization and in general, lower
+    performance.
+
+MISCELLANEOUS OPTIONS
+---------------------
+
+*--show-gpu-types*::
+    Prints out a list of GPU types that are potentially available for allocation.
+
+*-h, --help*::
+    Prints this message.
+
+*--automation*::
+    This option is intended for automation use by the VizStack Remote Access 
+    tools. Not intended for command line usage.
+
+EXIT STATUS
+-----------
+*0*::
+    Success
+
+*1*::
+    Failure (unable to allocate resources, termination via
+    ^C, any other abnormal termination)
+
+
+EXAMPLES
+--------
+
+To get a desktop running at a default resolution, use
+
+*# viz-tvnc*
+
+On success, this will print out the address to which you need
+to connect using the TurboVNC clent.  Logout of the desktop
+when you are done.  Terminating the script by pressing ^C
+is also one way to give up the desktop, but this is not
+recommended as you may loose work.
+
+To start a desktop at resolution 1144x1000, use
+
+*# viz-tvnc -g 1144x1000*
+
+To start the same desktop on a Quadro FX 5800 GPU, you would use
+
+*# viz-tvnc --gpu-type="Quadro FX 5800" -g 1144x1000*
+
+From a user experience point of view, you would want
+the remote desktop to automatically show up on your 
+local dekstop.  To achieve this, you need to start a 
+TurboVNC client in the "listen" mode on your desktop.
+Follow that up by running this command
+
+*#viz-tvnc -c <desktop_hostname>*
+
+The remote desktop should now pop up on your dekstop.
+
+To allocate a specific GPU you need for your work, use
+
+*# viz-tvnc --specific-gpus -a nodename/0*
+
+This will allocate GPU 0 on host 'nodename' for you. If
+a system has two GPUs, its GPUs will be numbered 0 and 1.
+
+AUTHOR
+------
+Written by Shree Kumar <shreekumar@users.sourceforge.net>
+
+
+RESOURCES
+---------
+SourceForge: <http://vizstack.sourceforge.net>
+
+COPYING
+-------
+Copyright \(C) 2009-2010 Hewlett-Packard. Free use of this software is
+granted under the terms of the GNU General Public License (GPL) version
+2.
+

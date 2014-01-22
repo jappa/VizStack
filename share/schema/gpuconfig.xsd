@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+targetNamespace="http://www.hp.com"
+xmlns="http://www.hp.com"
+elementFormDefault="qualified" >
+
+<xs:element name="gpu">
+	<xs:complexType>
+		<xs:sequence>
+			<!-- Multiple "owner"s can exist for this server. More than one owner implies sharing -->
+			<xs:element name="owner" minOccurs="0" maxOccurs="unbounded" type="xs:string" />
+
+			<!-- Maximum number of users this GPU can be shared with -->
+			<xs:element name="maxShareCount" minOccurs="0" maxOccurs="1" type="xs:nonNegativeInteger" />
+
+			<!-- Is this GPU being shared or not ? -->
+			<xs:element name="shared" minOccurs="0" maxOccurs="1" type="xs:boolean" />
+
+			<!-- The hostname where this GPU is available. -->
+			<xs:element name="hostname" minOccurs="0" maxOccurs="1" type="xs:string" />
+
+			<!-- A non-negative GPU index. -->
+			<xs:element name="index" minOccurs="0" maxOccurs="1" type="xs:nonNegativeInteger" />
+
+			<!-- A non-negative X server. This is applicable only if this GPU is shared -->
+			<xs:element name="sharedServerIndex" minOccurs="0" maxOccurs="1" type="xs:nonNegativeInteger" />
+
+			<xs:element name="model" type="xs:string" />
+			<xs:element name="vendor" type="xs:string" />
+			<xs:element name="useScanOut" type="xs:boolean" minOccurs="0" maxOccurs="1" /> <!-- nVidia has Quadro & Quadro S series GPUs. Both are same, but the S series have no scanout capabilities. While doing GPU match, this is also used to indicate the type of GPU needed. -->
+			<xs:element name="allowNoScanOut" type="xs:boolean" minOccurs="0" maxOccurs="1" />
+			<xs:element name="allowStereo" type="xs:boolean" minOccurs="0" maxOccurs="1" />
+			<xs:element name="scanout_caps" minOccurs="0" maxOccurs="unbounded" > <!-- Minimum scanouts is 0 to accomodate the QuadroPlex S series GPUs -->
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="index" type="xs:integer" />
+						<xs:element name="type" minOccurs="1" maxOccurs="unbounded" >
+							<xs:simpleType>
+								<xs:restriction base="xs:string">
+									<xs:enumeration value="digital" />
+									<xs:enumeration value="analog" />
+								</xs:restriction>
+							</xs:simpleType>
+						</xs:element>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+			<xs:element name="limits" >
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="max_width" type="xs:nonNegativeInteger" />
+						<xs:element name="max_height" type="xs:nonNegativeInteger" />
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+</xs:element>
+
+</xs:schema>
+

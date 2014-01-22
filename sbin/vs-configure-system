@@ -1,0 +1,838 @@
+#!/usr/bin/env python
+# VizStack - A Framework to manage visualization resources
+
+# Copyright (C) 2009-2010 Hewlett-Packard
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+"""
+vs-configure-system
+
+The most generic configuration File Generator for VizStack.
+
+Modus operandi is :
+
+ 1. Get a list of nodes from the user
+ 2. Use a scheduler, and run the "vs-detect-node-config" script on those nodes.
+      - get the standard output and errror
+      - get the return code. If the return code indicates failure, then we
+        have a problem.
+ 3. If all goes through, combine all node information info system_config.xml
+
+"""
+
+import sys
+sys.path.append('/opt/vizstack/python') # We expect this directory to contain the python modules
+
+# Check whether python-xml is installed. RPM might get installed without this dependency being in place.
+try:
+	from xml.dom import minidom
+except ImportError, e:
+	print >>sys.stderr, "Please install the package python-xml. This package is a needed for this script to run"
+	sys.exit(-1)
+	
+# Check whether the environment is setup right
+try:
+	import metascheduler
+except ImportError, e:
+	print >>sys.stderr, "The environment is not setup to use this script properly. Please logout & log back in again to setup the proper PYTHONPATH."
+	sys.exit(-1)
+
+from optparse import OptionParser
+import os
+import socket
+import subprocess
+import domutil
+import string
+import time
+import re
+import vsapi
+import vsutil
+import shutil
+from pprint import pprint
+
+# Output of this script goes here by default.
+handeditCheckFileName = '/etc/vizstack/.autoconfig_checksum'
+outMasterFileName = '/etc/vizstack/master_config.xml'
+outNodeFileName   = '/etc/vizstack/node_config.xml'
+outRGFileName     = '/etc/vizstack/resource_group_config.xml'
+
+#
+# Script execution starts here...
+#
+startTime = time.ctime()
+backup_suffix = "." + startTime.replace(' ','_')
+
+validSchedulers = ['slurm', 'ssh', 'local']
+numUsersPerGPU = 2
+
+
+# Parse command line options
+parser = OptionParser(
+	usage="/opt/vizstack/sbin/vs-configure-system [options] <nodelist>",
+	description="""
+This command configures one or more nodes for VizStack. You need to pass in at-least a scheduler
+and a list of nodes that you want to configure VizStack with. Use the other options when you need
+them.
+""")
+parser.add_option("-s", "--scheduler", dest="scheduler", help = "Configure VizStack to use this scheduler. Possible values are : %s"%(validSchedulers))
+parser.add_option("-r", "--remote-network", dest="remote_network", help="Use this option to specify the network of the interface that you want to use for HP RGS(Remote Graphics Software) or TurboVNC connections. The value needs to be in a.b.c.d notation, typically with trailing zeros. E.g., 15.146.228.0 or 192.168.1.0, etc")
+parser.add_option("-f", "--fast-network", dest="fast_network", help="Use this option to specify the network of the interface that you want to use as a fast data network. This value needs to be in a.b.c.d notation, typically with trailing zeros. E.g., 192.168.2.0, 172.22.0.0 etc. This network is typically local to a cluster and is configured to use a fast network like InfiniBand.")
+parser.add_option("-p", "--scheduler-param", dest="scheduler_param", default="", help = "Pass a specific parameter to the scheduler. Currently, this can be used with the slurm scheduler, causing VizStack to use a specific partition")
+parser.add_option("-c", "--connection-method", dest="connection_method", help = "Use this connection method to connect to the visualization nodes. Possible values are: %s"%(validSchedulers))
+parser.add_option("-S", "--gpu-share-count", type="int", default=2, dest="gpu_share_count", help="Configure each GPU to be sharable by these many users. This defaults to 2. You may share a GPU with a maximum of 8 users. Use a value of 1 to disable GPU sharing completely.")
+parser.add_option("-i", "--ignore-display-device", default=[], dest="ignore_display_device", action="append", help="Ignore this type of display device. This is typically used to ignore the connected KVM dongles. This option may be used multiple times.")
+parser.add_option("-x", "--exclude-sharing", default=[], action="append", dest="exclude_sharing", help="Do not share the GPUs on this node. This option may be used multiple times.")
+
+(options, args) = parser.parse_args(sys.argv[1:])
+
+# Validate command line arguments.
+
+if options.remote_network is not None:
+	matchOb = re.match("^([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)$", options.remote_network)
+	if matchOb is None:
+		print >>sys.stderr, "Bad network specified. The network must be specified in dotted decimal notation, a.b.c.d"
+		sys.exit(-1)
+	for part in matchOb.groups():
+		val = int(part)
+		if val>255:
+			print >>sys.stderr, "Bad network specified '%s'"%(options.remote_network)
+			sys.exit(-1)
+
+if options.fast_network is not None:
+	matchOb = re.match("^([0-9]+)\.([0-9]+)\.([0-9]+)\.([0-9]+)$", options.fast_network)
+	if matchOb is None:
+		print >>sys.stderr, "Bad value specified for fast network. The network must be specified in dotted decimal notation, a.b.c.d"
+		sys.exit(-1)
+	for part in matchOb.groups():
+		val = int(part)
+		if val>255:
+			print >>sys.stderr, "Bad network specified '%s'"%(options.fast_network)
+			sys.exit(-1)
+
+errorsHappened = False
+
+if options.scheduler is None:
+	print >>sys.stderr, "You need to specify a scheduler"
+	errorsHappened = True
+else:
+	if options.scheduler not in validSchedulers:
+		print >>sys.stderr, "Valid values for connection method are : %s"%(validSchedulers)
+		errorsHappened = True
+
+if options.connection_method is None:
+	if options.scheduler is not None:
+		options.connection_method = options.scheduler
+	else:
+		print >>sys.stderr, "You need to specify a connection method"
+		errorsHappened = True
+else:
+	if options.connection_method not in validSchedulers:
+		print >>sys.stderr, "Valid values for connection method are : %s"%(validSchedulers)
+		errorsHappened = True
+
+numUsersPerGPU = options.gpu_share_count
+if (numUsersPerGPU < 1):
+	print >>sys.stderr, "Number of users per GPU cannot be <1"
+	errorsHappened = True
+
+if (numUsersPerGPU > 8):
+	print >>sys.stderr, "Number of users per GPU cannot be more than 8"
+	errorsHappened = True
+
+if len(args)==0:
+	print >>sys.stderr, "You need to specify a list of nodes"
+	errorsHappened = True
+
+if errorsHappened:
+	parser.print_help()
+	sys.exit(-1)
+
+# Create a node list from args, using SLURM style expansion.
+nodeList = []
+for nodeSpec in args:
+	try:
+		nodeList = nodeList + vsutil.expandNodes(nodeSpec)
+	except ValueError, e:
+		print >>sys.stderr, str(e)
+		sys.exit(-1)
+
+# Error out if the same node is used multiple times.
+nodeHash = {}
+for node in nodeList:
+	if nodeHash.has_key(node):
+		print >>sys.stderr, "ERROR: Node '%s' specified more than once on the command line"%(node)
+	else:
+		nodeHash[node] = None
+
+if len(nodeHash)<len(nodeList):
+	sys.exit(-1)
+
+# If localhost is present in the node list, then it's the only one accepted
+if 'localhost' in nodeList:
+	if len(nodeList) != 1:
+		print >>sys.stderr, "ERROR: When specified, localhost can be the only node."
+		sys.exit(-1)
+	singleNode = True
+else:
+	singleNode = False
+
+# Sanity check: ensure that user cannot pass a nodename with "-x" that is not asked to be configured.
+for excNode in options.exclude_sharing:
+	if excNode not in nodeList:
+		print >>sys.stderr, "Node %s mentioned for exclusion from sharing(-x) is not in the list of nodes you have passed in for configuration."%(excNode)
+		sys.exit(-1)
+
+try:
+	# Get all known templates on this node
+	templateConfig = vsutil.loadLocalConfig(True)['templates']
+except Exception, e:
+	print >>sys.stderr, "FATAL: Unable to load the local templates. Cannot continue"
+	print >>sys.stderr, "Reason: %s"%(str(e))
+	sys.exit(-1)
+
+# Get the displays recognized by the system
+ddMapping = {}
+for name in templateConfig['display'].keys():
+	dispOb = templateConfig['display'][name]
+	if dispOb.getEDIDDisplayName() is not None:
+		ddMapping[dispOb.getEDIDDisplayName()] = dispOb.getType()
+
+# Get the existing node configurations if available
+# This will let us do things like retain and modify weights
+try:
+	prevNodeConfig = vsutil.loadLocalConfig()['nodes']
+except Exception, e:
+	prevNodeConfig = {}
+
+generatedTemplates = { 'gpu': {}, 'display': {} }
+
+# Create the scheduler
+try:
+	scheduler = metascheduler.createSchedulerType(options.connection_method, nodeList, options.scheduler_param)
+except ValueError, e:
+	print >>sys.stderr, "ERROR: Couldn't create the scheduler requested. Reason: %s"%(str(e))
+	# FIXME: we need to say why we failed ??
+	sys.exit(-1)
+
+# Info about master
+
+if singleNode!=True:
+	masterPort = "50000"
+	masterLocation = socket.gethostname()
+else:
+	masterPort = vsapi.SSM_UNIX_SOCKET_ADDRESS
+	masterLocation = "localhost"
+
+authMethod = "Munge"
+
+didFileBackup = False # Will be used to accumulate overwrite from slaves
+
+# Go over all the nodes, gathering information
+overallConfig = []
+allRemoteHosts = []
+total_gpus = 0
+total_shared_gpus = 0
+for node in nodeList:
+	print "\nProcessing Node '%s'..."%(node)
+
+	# FIXME: handle exceptions below!
+
+	# Allocate the node with the scheduler
+	try:
+		thisNode = scheduler.allocate(os.getuid(), os.getgid(), [node])
+	except Exception, e:
+		print >>sys.stderr, "Couldn't get access to node '%s'. Reason :\n%s"%(node, str(e))
+		sys.exit(-1)
+
+	# Run the node config generator
+	try:
+		cmd = ['/opt/vizstack/sbin/vs-generate-node-config']
+		if options.remote_network is not None:
+			cmd.append('--remote-network')
+			cmd.append(options.remote_network)
+		if options.fast_network is not None:
+			cmd.append('--fast-network')
+			cmd.append(options.fast_network)
+		cmd.append('--master')
+		cmd.append(masterLocation)
+		cmd.append('--master-port')
+		cmd.append(masterPort)
+		cmd.append('--overwrite-suffix')
+		cmd.append(backup_suffix)
+		proc = thisNode.run(cmd, node, None, outFile=subprocess.PIPE, errFile=subprocess.PIPE)
+		proc.wait()
+	except Exception, e:
+		print >>sys.stderr, "Failed to run vs-generate-node-config on node '%s'. Reason :\n%s"%(node, str(e))
+		print >>sys.stderr, ""
+		print >>sys.stderr, "Ensure that the VizStack software is installed on node '%s', as well as other nodes."%(node)
+		print >>sys.stderr, "Also, ensure that the version number matched the software installed on this node."
+		print >>sys.stderr, ""
+		print >>sys.stderr, "Please fix the above errors & run this tool again." 
+		sys.exit(-1)
+
+
+	# Save its output, error and return code
+	procStdOut = proc.getStdOut()
+	procStdErr = proc.getStdErr()
+	retCode = proc.getExitCode()
+
+	# Deallocate the node from the scheduler
+	try:
+		thisNode.deallocate()
+	except Exception, e:
+		print >>sys.stderr, "Failed to let go of access to node '%s'. Reason :\n%s"%(node, str(e))
+		print >>sys.stderr, ""
+		print >>sys,stderr, "Please fix the above errors & run this tool again" 
+
+	# Handle Error
+	if retCode != 0:
+		print >>sys.stderr, "Errors happened while trying to get the configuration of node '%s'. Reason:"%(node)
+		print >>sys.stderr, ""
+		print >>sys.stderr, procStdErr
+		print >>sys.stderr, ""
+		print >>sys.stderr, "Please fix the above errors & run this tool again" 
+		sys.exit(-1)
+
+	# Process return XML. We don't expect errors here. Any errors here are bugs, really!
+	dom = minidom.parseString(procStdOut)
+	doc = dom.documentElement
+
+	# Accumulate overwrites
+	remoteVal = bool(int(domutil.getValue(doc.getElementsByTagName('didOverwrite')[0])))
+	didFileBackup = didFileBackup or remoteVal
+
+	gpus = doc.getElementsByTagName("gpu")
+	num_gpus = len(gpus)
+	total_gpus += num_gpus
+
+	# Parse all GPU nodes
+	allGPUs = []
+	for gpu in gpus:
+		gpuOb = vsapi.deserializeVizResource(gpu, [vsapi.GPU])
+		allGPUs.append(gpuOb)
+
+	# Parse all display nodes
+	allDisplays = []
+	allNodes = doc.getElementsByTagName("display")
+	for dispNode in doc.getElementsByTagName("display"):
+		disp = vsapi.deserializeVizResource(dispNode, [vsapi.DisplayDevice])
+		allDisplays.append(disp)
+		# Add this to our mapping list
+		ddMapping[disp.getEDIDDisplayName()] = disp.getType()
+
+	# Give the user some idea about progress by showing what was detected
+	print "  Detected %d GPU(s) : "%(num_gpus),
+	for gpu in allGPUs:
+		print "'%s' "%(gpu.getType()),
+	print
+
+	# Generate the config for this node
+	nc  = "<!-- Node '%s', machine model '%s' has %d GPU(s) -->\n"%(node, domutil.getValue(doc.getElementsByTagName('model')[0]), num_gpus)
+	nc += "<node>\n"
+	thisRemoteHost = domutil.getValue(doc.getElementsByTagName('hostname')[0]) # Use the name that the node chooses to identify itself as
+	if singleNode:
+		thisRemoteHost = "localhost"
+	allRemoteHosts.append(thisRemoteHost)
+	nc += "\t<hostname>%s</hostname>\n"%(thisRemoteHost)
+	nc += "\t<model>%s</model>\n"%(domutil.getValue(doc.getElementsByTagName('model')[0]))
+	allocBias = 0
+	# get the existing weight if possible
+	if prevNodeConfig.has_key(thisRemoteHost):
+		allocBias = prevNodeConfig[thisRemoteHost].getAllocationBias()
+	nc += "\t<weight>%d</weight>\n"%(allocBias)
+	propsNode = doc.getElementsByTagName('properties')[0]
+	if propsNode is not None:
+		nc += "\t<properties>\n"
+		extHostNameNode = domutil.getChildNode(propsNode, "remote_hostname")
+		if extHostNameNode:
+			nc += "\t\t<remote_hostname>%s</remote_hostname>\n"%(domutil.getValue(extHostNameNode))
+		extFastNetworkNameNode = domutil.getChildNode(propsNode, "fast_network")
+		if extFastNetworkNameNode:
+			nc += "\t\t<fast_network>%s</fast_network>\n"%(domutil.getValue(extFastNetworkNameNode))
+		nc += "\t</properties>\n"
+
+	gpuDisplayInfo = {}
+	for gpuOb in allGPUs:
+		scanouts = gpuOb.getScanouts()
+		if len(scanouts)>0:
+			print # empy line
+			gpuIndex = gpuOb.getIndex()
+			dispList = []
+			allDispList = []
+			ignoreDispList = []
+			for pi in scanouts.keys():
+				ddName = scanouts[pi]['display_device']
+				allDispList.append(ddName)
+				gpuOb.clearScanout(pi)
+				if (ddName not in ddMapping.keys()) and (ddName not in options.ignore_display_device):
+					ignoreDispList.append(ddName)
+				else:
+					# map back from the EDID name to the display model.
+					gpuOb.setScanout(pi, ddMapping[ddName], scanouts[pi]['type'])
+					dispList.append(ddName)
+			if len(allDispList)==0:
+				print '  GPU %d : No connected display devices detected.'%(gpuIndex)
+			if len(ignoreDispList)!=0:
+				print '  GPU %d : Detected %d display device(s): %s'%(gpuIndex, len(allDispList), string.join(allDispList, ","))
+			if len(ignoreDispList)>0:
+				print '  GPU %d : Ignoring unrecognized display device(s): %s'%(gpuIndex, string.join(ignoreDispList, ","))
+			if len(dispList)>0:
+				print '  GPU %d : Effective display device(s): %s'%(gpuIndex, string.join(dispList, ","))
+			else:
+				print '  GPU %d : All display device(s) ignored'%(gpuIndex)
+			if node not in options.exclude_sharing:
+				acceptedDispList = filter(lambda(x): x not in options.ignore_display_device, dispList)
+				if len(acceptedDispList)<len(dispList):
+					ignoredDispList = filter(lambda(x): x in options.ignore_display_device, dispList)
+					print "    Ignoring %d display(s) => %s"%(len(ignoredDispList), string.join(ignoredDispList, ","))
+					if len(acceptedDispList)==0:
+						print "    This GPU is sharable since all displays got ignored."
+				if len(acceptedDispList)>0:
+					print "    This GPU will not be configured for shared access as it has displays attached to it"
+					gpuDisplayInfo[gpuIndex] = dispList
+
+	print # empty line
+	if node in options.exclude_sharing:
+		print "  This node is excluded from sharing, so no GPU on this node will be shared"
+		numSharedGPUs = 0
+		numVirtualServers = 0
+	elif options.gpu_share_count == 1:
+		print "  GPU sharing is disabled, so no GPU on this node will be shared"
+		numSharedGPUs = 0 
+		numVirtualServers = 0
+	else:
+		numSharedGPUs = len(gpus) - len(gpuDisplayInfo)
+		numVirtualServers = numSharedGPUs * numUsersPerGPU
+		print "  %d GPUs on node '%s' are configured to be sharable"%(numSharedGPUs, node)
+
+	numVirtualServers += (len(gpus)-numSharedGPUs) # we need atleast one virtual server per GPU
+
+	total_shared_gpus += numSharedGPUs
+
+	sharedServerBase = numVirtualServers + 1 + len(gpus)
+	sharedServerIndex = sharedServerBase
+
+	# Create dispaly templates if any are missing
+	for disp in allDisplays:
+		# If a template for this display already exists, then
+		# no need to do anything
+		if templateConfig['display'].has_key(disp.getType()):
+			continue
+
+		# Copy this display definition as the template
+		if not generatedTemplates['display'].has_key(disp.getType()):
+			generatedTemplates['display'][disp.getType()] = disp
+
+	# Create GPU templates if any are missing.
+	for gpu in allGPUs:
+		# If a template exists for this GPU, then there
+		# is no need to do anything
+		if templateConfig['gpu'].has_key(gpu.getType()):
+			continue
+
+		# if we come here, then we don't have a template
+		# for this GPU
+		if not generatedTemplates['gpu'].has_key(gpu.getType()):
+			thisGPU = vsapi.GPU(model=gpu.getType())
+			thisGPU.setVendor(gpu.getVendor())
+			generatedTemplates['gpu'][thisGPU.getType()] = thisGPU
+			thisGPU.setMaxFBWidth(gpu.getMaxFBWidth())
+			thisGPU.setMaxFBHeight(gpu.getMaxFBHeight())
+		else:
+			thisGPU = generatedTemplates['gpu'][gpu.getType()]
+
+		# Merge in any scanout values. We expect that this may
+		# happen multiple times, but with the same value
+		sc = gpu.getScanoutCaps()
+		if sc is not None:
+			thisGPU.setScanoutCaps(sc)
+
+		thisGPU.setAllowNoScanOut(gpu.getAllowNoScanOut())
+
+	# One node per GPU
+	for gpu in allGPUs:
+		gpuIndex = gpu.getIndex()
+		if node in options.exclude_sharing:
+			thisGPUisShared = False
+		else:
+			thisGPUisShared = not gpuDisplayInfo.has_key(gpuIndex)
+		nc += "\t<gpu>\n"
+		nc += "\t\t<index>%d</index>\n"%(gpuIndex)
+		if thisGPUisShared:
+			nc += "\t\t<maxShareCount>%d</maxShareCount>\n"%(numUsersPerGPU)
+			nc += "\t\t<sharedServerIndex>%d</sharedServerIndex>\n"%(sharedServerIndex)
+		if gpu.getBusId() is not None:
+			nc += "\t\t<busID>%s</busID>\n"%(gpu.getBusId())
+		nc += "\t\t<model>%s</model>\n"%(gpu.getType())
+		nc += "\t\t<useScanOut>%d</useScanOut>\n"%(gpu.getUseScanOut())
+		if gpu.getAllowStereo() is not None:
+			nc += "\t\t<allowStereo>%d</allowStereo>\n"%(gpu.getAllowStereo())
+		allScanouts = gpu.getScanouts()
+		for pi in allScanouts.keys():
+			scanout = allScanouts[pi]
+			nc +="\t\t<scanout>\n"
+			nc += "\t\t\t<port_index>%d</port_index>\n"%(pi)
+			nc += "\t\t\t<type>%s</type>\n"%(scanout['type'])
+			nc += "\t\t\t<display_device>%s</display_device>\n"%(scanout['display_device'])
+			nc +="\t\t</scanout>\n"
+		nc += "\t</gpu>\n"
+		if thisGPUisShared:
+			sharedServerIndex += 1
+
+	kbdNodes = doc.getElementsByTagName("keyboard")
+	for kbd in kbdNodes:
+		nc += "\t<keyboard>\n"
+		nc += "\t\t<index>%s</index>\n"%(domutil.getValue(domutil.getChildNode(kbd, "index")))
+		nc += "\t\t<type>%s</type>\n"%(domutil.getValue(domutil.getChildNode(kbd, "type")))
+		nc += "\t</keyboard>\n"
+
+	mouseNodes = doc.getElementsByTagName("mouse")
+	for mouse in mouseNodes:
+		nc += "\t<mouse>\n"
+		nc += "\t\t<index>%s</index>\n"%(domutil.getValue(domutil.getChildNode(mouse, "index")))
+		nc += "\t\t<type>%s</type>\n"%(domutil.getValue(domutil.getChildNode(mouse, "type")))
+		nc += "\t</mouse>\n"
+
+	# We need to configure the X servers on this machine
+	# We'll choose sensible defaults for now
+	#
+	# :0                                    => reserved for RGS
+	# :1 to :1+virtual servers-1            => Virtual Servers for TurboVNC, one per GPU
+	#                                          these include servers needed for multi users/GPU
+	# :end of VNC to :end of VNC+<n>-1      => one X server per GPU
+	# :end of VNC+<n>-1 :end of VNC+<n>+<nshared-1> => Shared X servers
+	#
+	# In case of need, the administrator can hand edit to their tastes, but this
+	# will get them up and running in a jiffy !
+	#
+
+	nc += "\t<!-- :0 reserved for HP RGS -->\n"
+	nc += "\t<x_server>\n"
+	nc += "\t\t<type>normal</type>\n"
+	nc += "\t\t<range><from>0</from><to>0</to></range>\n"
+	nc += "\t</x_server>\n"
+
+	xStart = 1
+	xEnd = xStart + numVirtualServers - 1
+	print
+	if xStart == xEnd:
+		nc += "\t<!-- virtual :%d for TurboVNC -->\n"%(xStart)
+		print "  Virtual Server configured for node '%s' is %d"%(node, xStart)
+	else:
+		nc += "\t<!-- virtual :%d to :%d used for TurboVNC -->\n"%(xStart, xEnd)
+		print "  Virtual Servers configured for node '%s' from :%d to :%d"%(node, xStart, xEnd)
+	print "  If you use TurboVNC, then please open the firewall for ports %d to %d"%(5900+xStart, 5900+xEnd)
+	print "  If you use HP RGS, then please open the firewall for port 42966"
+	nc += "\t<x_server>\n"
+	nc += "\t\t<type>virtual</type>\n"
+	nc += "\t\t<range><from>%d</from><to>%d</to></range>\n"%(xStart, xEnd)
+	nc += "\t</x_server>\n"
+
+	xStart = xEnd + 1
+	xEnd = xStart + num_gpus - 1
+	if xStart == xEnd:
+		nc += "\t<!-- :%d for user X server -->\n"%(xStart)
+	else:
+		nc += "\t<!-- :%d to :%d for user X servers -->\n"%(xStart, xEnd)
+	nc += "\t<x_server>\n"
+	nc += "\t\t<type>normal</type>\n"
+	nc += "\t\t<range><from>%d</from><to>%d</to></range>\n"%(xStart, xEnd)
+	nc += "\t</x_server>\n"
+
+
+	xStart = xEnd + 1
+	xEnd = xStart + numSharedGPUs - 1
+	if xEnd>=xStart:
+		if xStart == xEnd:
+			nc += "\t<!-- :%d for Shared X server -->\n"%(xStart)
+		else:
+			nc += "\t<!-- :%d to :%d used for Shared X servers -->\n"%(xStart, xEnd)
+		nc += "\t<x_server>\n"
+		nc += "\t\t<type>normal</type>\n"
+		nc += "\t\t<range><from>%d</from><to>%d</to></range>\n"%(xStart, xEnd)
+		nc += "\t</x_server>\n"
+
+	print
+	print "  This node uses X servers from :0 to %d. "%(xEnd)
+	if xEnd>=10:
+		print "  If you intend to allow users to use SSH with X11 forwarding, then"
+		print "  please increase X11DisplayOffset in /etc/ssh/sshd_config to atleast %d"%(xEnd+1)
+	nc += "</node>\n"
+	overallConfig.append(nc)
+
+# Yahoo ! We're done !!!
+
+print
+
+# Write out each GPU template
+for name in generatedTemplates['gpu']:
+	thisGPU = generatedTemplates['gpu'][name]
+
+	sc = thisGPU.getScanoutCaps()
+	if sc is not None:
+		thisGPU.setUseScanOut(True)
+	print "Generating Template for GPU '%s'"%(thisGPU.getType())
+	fp = open("/etc/vizstack/templates/gpus/%s.xml"%(thisGPU.getType()), "w")
+	print >>fp, """<?xml version="1.0" ?>
+<gpu 
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/gpuconfig.xsd">
+		<model>%s</model>
+		<vendor>%s</vendor>"""%(thisGPU.getType(), thisGPU.getVendor())
+	print >>fp, """
+		<allowNoScanOut>%d</allowNoScanOut>"""%(thisGPU.getAllowNoScanOut())
+	if sc is not None:
+		for portIndex in sc.keys():
+			print >>fp, """
+			<scanout_caps>
+				<index>%d</index>"""%(portIndex)
+			for outType in sc[portIndex]:
+				print >>fp, """
+				<type>%s</type>"""%(outType)
+			print >>fp, """
+			</scanout_caps>"""
+	print >>fp, """
+		<limits>
+			<max_width>%d</max_width>
+			<max_height>%d</max_height>
+		</limits>
+</gpu>"""%(thisGPU.getMaxFBWidth(), thisGPU.getMaxFBHeight())
+	fp.close()
+
+# Write out each new display template
+for name in generatedTemplates['display']:
+	thisDisplay = generatedTemplates['display'][name]
+
+	print "Generating Template for Display '%s'"%(thisDisplay.getType())
+	fp = open("/etc/vizstack/templates/displays/%s.xml"%(thisDisplay.getType()), "w")
+	dims = thisDisplay.getDimensions()
+	bez = thisDisplay.getBezel()
+	if bez is None:
+		bez=[0,0,0,0]
+	print >>fp, """<?xml version="1.0" ?>
+<display
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/displayconfig.xsd" >
+	<model>%s</model>
+	<input>%s</input>
+	<edidBytes>%s</edidBytes>
+	<edid_name>%s</edid_name>
+	<dimensions>
+		<width>%s</width>
+		<height>%s</height>
+		<bezel>
+			<left>%s</left>
+			<right>%s</right>
+			<bottom>%s</bottom>
+			<top>%s</top>
+		</bezel>
+	</dimensions>
+	<default_mode>%s</default_mode>"""%(thisDisplay.getType(), thisDisplay.getInput(), thisDisplay.getEDIDBytes(), thisDisplay.getEDIDDisplayName(), dims[0], dims[1], bez[0], bez[1], bez[2], bez[3], thisDisplay.getDefaultMode()['alias'])
+	for thisMode in thisDisplay.getAllModes():
+		print >> fp, """
+	<mode>
+		<type>edid</type>
+		<alias>%s</alias>
+		<width>%d</width>
+		<height>%d</height>
+		<refresh>%s</refresh>
+	</mode>"""%(thisMode['alias'], thisMode['width'],thisMode['height'], thisMode['refresh'])
+	print >>fp,"""
+</display>"""
+	fp.close()
+
+# Show the user a summary
+summary =  """
+An approximate summary of this configuration is :
+
+  - VizStack SSM running at host '%s', port '%s'
+  - %d nodes will be managed by the SSM
+    - %d GPU(s) are available
+    - %d GPU(s) are configured for shared usage
+    - scheduler used will be '%s'
+    - see file '%s' for node configuration & scheduler details
+
+"""%(masterLocation, masterPort, len(nodeList), total_gpus, total_shared_gpus, options.scheduler, outNodeFileName)
+
+print summary
+
+doBackup = True
+# If the checksum file didn't exist, then we will backup any existing files
+try:
+	os.stat(handeditCheckFileName)
+except OSError, e:
+	pass
+else:
+	# If the checksum file exists, and doesn't match, then the files
+	# were modified by hand. That also calls for a backup
+	if (os.system('md5sum -c %s >/dev/null 2>/dev/null'%(handeditCheckFileName)))==0:
+		doBackup = False
+
+if doBackup:
+	for fileName in [outMasterFileName, outNodeFileName]:
+		try:
+			os.stat(fileName)
+			shutil.copy2(fileName, fileName+backup_suffix)
+			didFileBackup = True
+		except OSError, e:
+			pass
+	
+# Open the configuration file(s) for writing
+try:
+	outMasterFile = open(outMasterFileName, 'w')
+except IOError, e:
+	print >>sys.stderr, "Failed to create output configuration file '%s'. Reason:%s"%(outMasterFileName, str(e))
+	sys.exit(-1)
+
+try:
+	outNodeFile = open(outNodeFileName, 'w')
+except IOError, e:
+	print >>sys.stderr, "Failed to create output configuration file '%s'. Reason:%s"%(outNodeFileName, str(e))
+	sys.exit(-1)
+
+# Write out the header
+print >>outMasterFile, """<?xml version="1.0" ?>
+
+<masterconfig
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/masterconfig.xsd" >
+<!--
+
+Please don't change the above lines. If you change them, then any hand-edits
+you make to this file will be difficult to validate.
+
+VizStack System Configuration File. To activate this configuration
+  1. Copy this file to /etc/vizstack/system_config.xml
+  2. Start the SSM as root (/opt/vizstack/bin/vs-ssm)
+
+This file was generated automatically by running the command line
+
+# %s
+
+(Note: double hyphens in the above command line is converted to a double underscore
+to adhere to XML syntax restrictions)
+
+This command was run at : %s
+
+%s
+
+-->
+"""%(string.join(sys.argv," ").replace('--','__'), startTime, summary)
+
+# Write out information about the master
+print >>outMasterFile, """
+\t<system>
+\t\t<type>sea_of_nodes</type>
+\t\t<master>%s</master>
+\t\t<master_port>%s</master_port>
+\t\t<master_auth>%s</master_auth>
+\t</system>
+"""%(masterLocation, masterPort, "Munge")
+
+# Write out the footer
+print >>outMasterFile, """
+</masterconfig>
+"""
+
+
+# Write out information about each node
+print >>outNodeFile, """<?xml version="1.0" ?>
+
+<nodeconfig
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/nodeconfig.xsd" >"""
+
+print >>outNodeFile, "\t<nodes>\n"
+for cfg in overallConfig:
+	for line in cfg.split("\n"):
+		print >>outNodeFile, "\t\t", line
+print >>outNodeFile, "\t</nodes>\n"
+
+# Write out the scheduler info
+print >>outNodeFile, "\t<scheduler>"
+print >>outNodeFile, "\t\t<type>%s</type>"%(options.scheduler)
+for nodeName in allRemoteHosts:
+	print >>outNodeFile,"\t\t<node>%s</node>"%(nodeName)
+print >>outNodeFile, "\t</scheduler>"
+
+# Write out the footer
+print >>outNodeFile, """
+</nodeconfig>
+"""
+
+# Done...
+outMasterFile.close()
+outNodeFile.close()
+
+print """
+To activate this configuration, you need to start the SSM
+  # /opt/vizstack/sbin/vs-ssm start
+"""
+
+if didFileBackup:
+	print """One or more files were backed up during this configuration. 
+All the original files have been backed up with a name suffix '%s'"""%(backup_suffix)
+
+# Maintain a checksum of the current files!
+if os.system("md5sum %s %s > %s"%(outMasterFileName, outNodeFileName, handeditCheckFileName))!=0:
+	try:
+		os.unlink(handeditCheckFileName)
+	except OSError, e:
+		pass
+
+# Create an empty resource group configuration file if it
+# does not exist. We create this as a convenience to the user
+# We don't install this as part of the RPM, so this won't get
+# removed when the RPM goes away.
+try:
+	os.stat(outRGFileName) # Test for file existence!
+except OSError, e:
+	try:
+		outRGFile = open(outRGFileName, 'w')
+		print >>outRGFile, """<?xml version="1.0" ?>
+<resourcegroupconfig
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/resourcegroupconfig.xsd" >
+
+<!-- 
+
+This file contains the definitions for all resource groups. Currently, Tiled Displays
+are the only form of resource groups supported, so this file contains the definitions
+of all tiled displays.
+
+Try not to edit this file by hand. You may use the tool vs-manage-tiled-displays
+to create/delete tiled displays.
+
+Tiled displays can also be created programmatically; look at a sample at
+
+/opt/vizstack/share/samples/tiled_display/programmatic-tiled-display.py
+
+
+-->
+
+</resourcegroupconfig>"""
+		outRGFile.close()
+	except IOError, e:
+		print >>sys.stderr, "Failed to create output configuration file '%s'. Reason:%s"%(outRGFileName, str(e))
+		sys.exit(-1)
+
+# Nothing succeeds like success !
+sys.exit(0)

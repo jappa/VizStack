@@ -1,0 +1,189 @@
+#!/usr/bin/env python
+# VizStack - A Framework to manage visualization resources
+
+# Copyright (C) 2009-2010 Hewlett-Packard
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+"""
+vs-test-gpus : Tool to test GPUs on a vizstack system
+"""
+
+import sys
+sys.path.append('/opt/vizstack/python')
+import os
+import time
+from optparse import OptionParser
+from vsapi import Server, VizError, GPU, Screen, ResourceAccess, VizNode, extractObjects
+from pprint import pprint
+
+def test_local_gpu():
+	noErrors = True
+	info = os.popen("glxinfo","r")
+	allInfo = info.readlines()
+	errorLine = ""
+	for line in allInfo:
+		line = line.rstrip()
+		printLine = False
+		if line.startswith("direct rendering"):
+			if not line.endswith("Yes"):
+				errorLine = "ERROR: Direct Rendering is not available"
+				noErrors = False
+			printLine = True
+		elif line.startswith("OpenGL"):
+			if not line.startswith("OpenGL extensions"):
+				printLine = True
+		if printLine:
+			print "    %s"%(line)
+	if not noErrors:
+		# NOTE: errors are sent to stdout to ensure all prints appear in
+		# sequence
+		print errorLine
+	return noErrors
+
+def identify_gpu(gpu):
+	return "GPU %d on host %s"%(gpu.getIndex(), gpu.getHostName())
+
+def test_gpu(ra, gpu, showMessages=False, shell=False):
+	print
+	print "Testing %s"%(identify_gpu(gpu))
+	srv = Server(0, hostName=gpu.getHostName())
+	try:
+		alloc = ra.allocate([ [srv, gpu] ])
+	except VizError, e:
+		print >>sys.stderr, "Can't test %s. Reason: Failed to allocate it. Please ensure that all GPUs are free before running this tool."%(identify_gpu(gpu))
+		return False
+
+	allRes = alloc.getResources()
+	allocSrv = allRes[0][0]
+	allocGPU = allRes[0][1]
+
+	scr = Screen(0)
+
+	# If the GPU is attached to display devices, then use them.
+	# If the GPU is _not_attached to display device(s), then
+	#  - if the GPU supports noscanout, then setup a virtual GB
+	#  - if the GPU does not support noscanout, then
+	#    setup a display device on the first available port
+	if len(allocGPU.getScanouts())==0:
+		if allocGPU.getAllowNoScanOut():
+			scr.setFBProperty('resolution',[1024,768])
+		else:
+			sc = allocGPU.getScanoutCaps()
+			allocGPU.setScanout(0, 'HP LP2065', sc[0][0])
+
+	scr.setGPU(allocGPU)
+	allocSrv.addScreen(scr)
+
+	alloc.setupViz(ra)
+
+	print "  Starting X server..."
+	try:
+		alloc.startViz(ra, suppressMessages=(not showMessages))
+	except VizError, e:
+		print >>sys.stderr, "ERROR: Failed to start X server for %s. "%(identify_gpu(gpu))
+		if not showMessages:
+			print >>sys.stderr, "Run this command with the verbose option, -v to see what could be going wrong."
+		return False
+
+	# Avoid cluttering messages
+	if showMessages:
+		time.sleep(5)
+
+	if shell:
+		print "Starting shell ---"
+		os.system("bash")
+		print "Out of shell ---"
+
+	proc = scr.run([sys.argv[0], "--recursive"])
+	proc.wait()
+	ret = proc.getExitCode()
+
+	print "  Stopping X server..."
+	try:
+		alloc.stopViz(ra)
+	except VizError, e:
+		pass
+
+	try:
+		ra.deallocate(alloc)
+	except VizError, e:
+		pass
+
+	# Avoid cluttering messages
+	if showMessages:
+		time.sleep(5)
+
+	if (ret == None) or (ret == 0):
+		return True
+
+	return False
+
+parser = OptionParser(description = """
+This tool tests all GPUs in the system. Before running this tool, you need to ensure that no GPUs are being used. 
+You may pass one or node names on the command line to restrict testing to those nodes.
+
+""",
+usage="vs-test-gpus [node1] [node2] ...")
+parser.add_option('--recursive', dest='recursive', default=False, action="store_true", help="Meant for internal use by the tool")
+parser.add_option('-v', '--verbose', dest='verbose', default=False, action="store_true", help="Show messages; helps you diagnose issues.")
+
+(options, args) = parser.parse_args(sys.argv[1:])
+
+try:
+	ra = ResourceAccess()
+except VizError, e:
+	print >>sys.stderr, str(e)
+	sys.exit(-1)
+
+if options.recursive:
+	ret = test_local_gpu()
+	if ret==False:
+		print 'exiting with failure'
+		sys.exit(1)
+	sys.exit(0)
+
+allNodes = ra.queryResources(VizNode())
+allNodeNames = map(lambda x: x.getHostName(), allNodes)
+
+nodesToUse = []
+if len(args)>0:
+	for hostName in args:
+		if hostName not in allNodeNames: 
+			print >>sys.stderr, "Invalid hostname:%s"%(hostName)
+			sys.exit(1)
+		nodesToUse += filter(lambda x: x.getHostName()==hostName, allNodes)
+else:
+	nodesToUse = allNodes
+
+# Generate the list of GPUs to test
+allGPUs = extractObjects(GPU, nodesToUse)
+if len(allGPUs)==0:
+	print >>sys.stderr, "FATAL: No GPUs in system. Nothing to do!"
+	sys.exit(1)
+
+for thisGPU in allGPUs:
+	if test_gpu(ra, thisGPU, options.verbose)!=True:
+		print >>sys.stderr
+		print >>sys.stderr, "ERROR - Test failed for %s"%(identify_gpu(thisGPU))
+		print >>sys.stderr
+		sys.exit(1)
+
+ra.stop()
+
+print
+print "Test PASSED - the %d GPUs are usable."%(len(allGPUs))
+print
+sys.exit(0)

@@ -1,0 +1,51 @@
+<?xml version="1.0" ?>
+
+<systemconfig 
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /etc/vizstack/schema/systemconfig.xsd" >
+	<system>
+		<type>sea_of_nodes</type>
+		<master>localhost</master>
+		<master_port>50000</master_port>
+		<master_auth>None</master_auth>
+	</system>
+	<nodes>
+		<node>
+			<name>localhost</name>
+			<model>HP xw8400 Workstation</model>
+			<gpu>
+				<index>0</index>
+				<bus_id>PCI:10:0:0</bus_id>
+				<type>Quadro FX 5800</type>
+			</gpu>
+			<keyboard>
+				<index>0</index>
+				<type>DefaultKeyboard</type>
+			</keyboard>
+			<mouse>
+				<index>0</index>
+				<type>DefaultMouse</type>
+			</mouse>
+			<x_server><type>normal</type><range><from>1</from><to>10</to></range></x_server>
+			<x_server><type>virtual</type><range><from>0</from><to>0</to></range></x_server>
+		</node>
+	</nodes>
+
+	<scheduler>
+		<type>local</type> <!-- specify that all nodes are managed by "local" type of scheduler. "slurm" is another valid value -->
+	</scheduler>
+
+	<resourceGroup>
+		<name>tile2x1</name>
+		<handler>tiled_display</handler>
+		<handler_params>num_blocks=[1,1];block_type="gpu";block_display_layout=[2,1];display_device="LP3065";display_mode="1280x800_60";tile_resolution=[1280,800];</handler_params>
+		<resources>
+			<reslist> 
+				<res><serverconfig><hostname>localhost</hostname><server_number>0</server_number></serverconfig></res>
+				<res><gpu><hostname>localhost</hostname><index>0</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+</systemconfig>

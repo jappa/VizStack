@@ -1,0 +1,54 @@
+<remote_access>
+
+<!-- 
+
+Sample remote_access.xml, provided for purposes of illustration 
+
+When a VizStack user (different from an administrator) runs 
+a remote visualization script - e.g., TurboVNC or RGS, s/he is
+allocated resources from the pool managed by VizStack.
+
+Remote visualization network traffic may pass through
+a separate network. Users may need to connect to the addresses
+on that network to reach the allocated resources.
+
+This file provides a mapping from the hostname of the nodes
+where the resources reside to the hostname/address on the remote
+network.
+
+-->
+
+	<!-- 
+	Node "test1" is accessed by the user using 'remoteviz1.hp.com'
+	(NOTE: that's a phony hostname)
+	Note that remoteviz1.hp.com must be resolvable on the machines
+	from where the user will launch the remote visualization client.
+	-->
+	<node>
+		<hostname>test1</hostname> 
+		<remote_access_hostname>remoteviz1.hp.com</remote_access_hostname>
+	</node>
+
+	<!-- 
+	Node "test2" is accessed by the user using 'remoteviz2.hp.com'
+	(NOTE: that's a phony hostname)
+	Again, remoteviz2.hp.com must be resolvable on the machines
+	from where the user will launch the remote visualization client.
+	-->
+	<node>
+		<hostname>test1</hostname> 
+		<remote_access_hostname>remoteviz1.hp.com</remote_access_hostname>
+	</node>
+
+	<!-- 
+	Node "test5" is accessed by the user using IP address '10.1.20.3'
+	(NOTE: that's a phony IP address)
+	-->
+	<node>
+		<hostname>test5</hostname> 
+		<remote_access_hostname>10.1.20.3</remote_access_hostname>
+	</node>
+
+	<!-- Specify any number of nodes that you want here -->
+
+</remote_access>

@@ -1,0 +1,31 @@
+<?xml version="1.0" ?>
+<!--
+
+The QuadroFX 3450 is an older generation card. We have it in the labs, and
+no reason not to include this !
+
+-->
+
+<gpu 
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/gpuconfig.xsd">
+
+		<model>Quadro FX 3450/4000 SDI</model>
+		<vendor>NVIDIA Corporation</vendor>
+		<scanout_caps>
+			<index>0</index>
+			<type>digital</type>
+			<type>analog</type>
+		</scanout_caps>
+		<scanout_caps>
+			<index>1</index>
+			<type>digital</type>
+			<type>analog</type>
+		</scanout_caps>
+		<limits>
+			<max_width>4096</max_width>
+			<max_height>4096</max_height>
+		</limits>
+
+</gpu>

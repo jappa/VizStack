@@ -1,0 +1,123 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+targetNamespace="http://www.hp.com"
+xmlns="http://www.hp.com"
+elementFormDefault="qualified" >
+
+<xs:element name="nodeconfig">
+	<xs:complexType>
+		<xs:sequence>
+			<xs:element name="nodes" minOccurs="1" maxOccurs="unbounded" >
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="node" minOccurs="1" maxOccurs="unbounded" >
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="name" type="xs:string" />
+									<xs:element name="model" type="xs:string" />
+									<xs:element name="properties" minOccurs="0" maxOccurs="1" >
+										<xs:complexType>
+											<xs:sequence>
+												<xs:element name="remote_hostname" minOccurs="0" maxOccurs="1" type="xs:string" />
+											</xs:sequence>
+										</xs:complexType>
+									</xs:element>
+									<xs:element name="gpu" minOccurs="0" maxOccurs="unbounded" > <!-- gpu=0 allowed for implicit GPU sharing without VizStack intervention -->
+										<xs:complexType>
+											<xs:sequence>
+												<xs:element name="index" type="xs:nonNegativeInteger" />
+												<xs:element name="maxShareCount" minOccurs="0" maxOccurs="1" type="xs:nonNegativeInteger" />
+												<xs:element name="sharedServerIndex" minOccurs="0" maxOccurs="1" type="xs:nonNegativeInteger" />
+												<xs:element name="busID" type="xs:string" minOccurs="0" maxOccurs="1" />
+												<xs:element name="model" type="xs:string" />
+												<xs:element name="useScanOut" type="xs:boolean" />
+												<xs:element name="scanout" minOccurs="0" maxOccurs="unbounded" > <!-- Minimum scanouts is 0 to accomodate the QuadroPlex S series GPUs -->
+													<xs:complexType>
+														<xs:sequence>
+															<xs:element name="port_index" type="xs:integer" />
+															<xs:element name="type" >
+																<xs:simpleType>
+																	<xs:restriction base="xs:string">
+																		<xs:enumeration value="DVI" />
+																		<xs:enumeration value="VGA" />
+																	</xs:restriction>
+																</xs:simpleType>
+															</xs:element>
+															<xs:element name="display_device" type="xs:integer" />
+														</xs:sequence>
+													</xs:complexType>
+												</xs:element>
+											</xs:sequence>
+										</xs:complexType>
+									</xs:element>
+									<xs:element name="sli" minOccurs="0" maxOccurs="unbounded" >
+										<xs:complexType>
+											<xs:sequence>
+												<xs:element name="index" type="xs:nonNegativeInteger" />
+												<xs:element name="type" type="xs:string" />
+												<xs:element name="gpu0" type="xs:nonNegativeInteger" />
+												<xs:element name="gpu1" type="xs:nonNegativeInteger" />
+											</xs:sequence>
+										</xs:complexType>
+									</xs:element>
+									<xs:element name="keyboard" minOccurs="0" maxOccurs="unbounded" >
+										<xs:complexType>
+											<xs:sequence>
+												<xs:element name="index" type="xs:string" />
+												<xs:element name="type" type="xs:string" />
+												<xs:element name="phys_addr" type="xs:string" minOccurs="0" maxOccurs="1" />
+											</xs:sequence>
+										</xs:complexType>
+									</xs:element>
+									<xs:element name="mouse" minOccurs="0" maxOccurs="unbounded" >
+										<xs:complexType>
+											<xs:sequence>
+												<xs:element name="index" type="xs:string" />
+												<xs:element name="type" type="xs:string" />
+												<xs:element name="phys_addr" type="xs:string" minOccurs="0" maxOccurs="1" />
+											</xs:sequence>
+										</xs:complexType>
+									</xs:element>
+									<xs:element name="x_server" minOccurs="0" maxOccurs="unbounded" > <!-- xservers=0 is allowed to accomodate the case of pure GPGPU -->
+										<xs:complexType>
+											<xs:sequence>
+												<xs:element name="type" >
+													<xs:simpleType>
+														<xs:restriction base="xs:string">
+															<xs:enumeration value="normal" />
+															<xs:enumeration value="virtual" />
+														</xs:restriction>
+													</xs:simpleType>
+												</xs:element>
+												<xs:element name="range" >
+													<xs:complexType>
+														<xs:sequence>
+															<xs:element name="from" type="xs:nonNegativeInteger" />
+															<xs:element name="to" type="xs:nonNegativeInteger" />
+														</xs:sequence>
+													</xs:complexType>
+												</xs:element>
+											</xs:sequence>
+										</xs:complexType>
+									</xs:element>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+			<!-- Next comes the scheduler specification -->
+			<xs:element name="scheduler" minOccurs="0" maxOccurs="unbounded" > <!-- no scheduler is acceptable for slave nodes, as well as static configurations -->
+				<xs:complexType>
+						<xs:sequence>
+								<xs:element name="type" type="xs:string" />
+								<xs:element name="param" type="xs:string" minOccurs="0" maxOccurs="1" />
+								<xs:element name="node" type="xs:string" minOccurs="1" maxOccurs="unbounded" />
+						</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+</xs:element>
+
+</xs:schema>

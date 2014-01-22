@@ -1,0 +1,471 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="744.09448819"
+   height="1052.3622047"
+   id="svg2"
+   sodipodi:version="0.32"
+   inkscape:version="0.46"
+   sodipodi:docname="2x2-resourceGroupConfig.svg"
+   inkscape:output_extension="org.inkscape.output.svg.inkscape">
+  <defs
+     id="defs4">
+    <marker
+       inkscape:stockid="Arrow1Lend"
+       orient="auto"
+       refY="0.0"
+       refX="0.0"
+       id="Arrow1Lend"
+       style="overflow:visible;">
+      <path
+         id="path3298"
+         d="M 0.0,0.0 L 5.0,-5.0 L -12.5,0.0 L 5.0,5.0 L 0.0,0.0 z "
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1.0pt;marker-start:none;"
+         transform="scale(0.8) rotate(180) translate(12.5,0)" />
+    </marker>
+    <inkscape:perspective
+       sodipodi:type="inkscape:persp3d"
+       inkscape:vp_x="-187.38329 : 664.06691 : 1"
+       inkscape:vp_y="6.1230318e-14 : 1000 : 0"
+       inkscape:vp_z="487.41473 : 410.92269 : 1"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       id="perspective10" />
+    <inkscape:perspective
+       id="perspective2392"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective2405"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective2418"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective2510"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective3412"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective2463"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       sodipodi:type="inkscape:persp3d" />
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     gridtolerance="10000"
+     guidetolerance="10"
+     objecttolerance="10"
+     inkscape:pageopacity="1"
+     inkscape:pageshadow="2"
+     inkscape:zoom="1.4142136"
+     inkscape:cx="303.15391"
+     inkscape:cy="483.89024"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="2560"
+     inkscape:window-height="1544"
+     inkscape:window-x="0"
+     inkscape:window-y="22" />
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <text
+       xml:space="preserve"
+       style="font-size:8px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="129.3589"
+       y="167.89624"
+       id="text2424"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\td-2x2-xml.png"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968"><tspan
+         sodipodi:role="line"
+         id="tspan2426"
+         x="129.3589"
+         y="167.89624"
+         style="font-size:12px">&lt;resourceGroup&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="182.89624"
+         id="tspan2430"
+         style="font-size:12px">  &lt;name&gt;<tspan
+   style="fill:#ff0000"
+   id="tspan3270">full-2x2</tspan>&lt;/name&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="197.89624"
+         id="tspan2432"
+         style="font-size:12px">  &lt;handler&gt;tiled_display&lt;/name&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="212.89624"
+         id="tspan2434"
+         style="font-size:12px">  &lt;handler_params&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="227.89624"
+         id="tspan2440"
+         style="font-size:12px">  block_type=&quot;gpu&quot;;num_blocks=[1,2];display_device=&quot;LP3065&quot;;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="242.89624"
+         id="tspan2450"
+         style="font-size:12px">  &lt;/handler_params&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="257.89624"
+         id="tspan2456"
+         style="font-size:12px">  &lt;resources&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="272.89624"
+         id="tspan2460"
+         style="font-size:12px">     &lt;reslist&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="287.89624"
+         id="tspan3267"
+         style="font-size:12px">       &lt;res&gt;&lt;serverconfig&gt;&lt;hostname&gt;node<tspan
+   style="font-size:12px;fill:#000000;fill-opacity:1;stroke:none;stroke-opacity:1"
+   id="tspan3242">1</tspan>&lt;/hostname&gt;&lt;/serverconfig&gt;&lt;/res&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="302.89624"
+         id="tspan3272"
+         style="font-size:12px">       &lt;res&gt;&lt;gpu&gt;&lt;index&gt;0&lt;/index&gt;&lt;/gpu&gt;&lt;/res&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="317.89624"
+         style="font-size:12px"
+         id="tspan3283">     &lt;/reslist&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="332.89624"
+         style="font-size:12px"
+         id="tspan3327">     &lt;reslist&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="347.89624"
+         style="font-size:12px"
+         id="tspan3329">       &lt;res&gt;&lt;serverconfig&gt;&lt;hostname&gt;node2&lt;/hostname&gt;&lt;/serverconfig&gt;&lt;/res&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="362.89624"
+         style="font-size:12px"
+         id="tspan3331">       &lt;res&gt;&lt;gpu&gt;&lt;index&gt;0&lt;/index&gt;&lt;/gpu&gt;&lt;/res&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="377.89624"
+         style="font-size:12px"
+         id="tspan3333">     &lt;/reslist&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="392.89624"
+         id="tspan2458"
+         style="font-size:12px">  &lt;/resources&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="407.89624"
+         id="tspan2452"
+         style="font-size:12px">&lt;/resourceGroup&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="422.89624"
+         style="font-size:12px"
+         id="tspan3325" /><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="437.89624"
+         style="font-size:12px"
+         id="tspan3299">&lt;resourceGroup&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="452.89624"
+         style="font-size:12px"
+         id="tspan3301">  &lt;name&gt;right-2x2&lt;/name&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="467.89624"
+         style="font-size:12px"
+         id="tspan3303">  &lt;handler&gt;tiled_display&lt;/name&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="482.89624"
+         style="font-size:12px"
+         id="tspan3305">  &lt;handler_params&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="497.89624"
+         style="font-size:12px"
+         id="tspan3307">  block_type=&quot;gpu&quot;;num_blocks=[1,2];display_device=&quot;LP3065&quot;;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="512.89624"
+         style="font-size:12px"
+         id="tspan3309">  &lt;/handler_params&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="527.89624"
+         style="font-size:12px"
+         id="tspan3311">  &lt;resources&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="542.89624"
+         style="font-size:12px"
+         id="tspan3313">     &lt;reslist&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="557.89624"
+         style="font-size:12px"
+         id="tspan3315">       &lt;res&gt;&lt;serverconfig&gt;&lt;hostname&gt;node1&lt;/hostname&gt;&lt;/serverconfig&gt;&lt;/res&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="572.89624"
+         style="font-size:12px"
+         id="tspan3317">       &lt;res&gt;&lt;gpu&gt;&lt;index&gt;0&lt;/index&gt;&lt;/gpu&gt;&lt;/res&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="587.89624"
+         style="font-size:12px"
+         id="tspan3319">     &lt;/reslist&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="602.89624"
+         style="font-size:12px"
+         id="tspan3321">  &lt;/resources&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="617.89624"
+         style="font-size:12px"
+         id="tspan3323">&lt;/resourceGroup&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="632.89624"
+         id="tspan2428"
+         style="font-size:12px" /></text>
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:3.28771138;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect2468"
+       width="451.4621"
+       height="352.64832"
+       x="123.00277"
+       y="154.04008"
+       ry="0.87576503"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\td-2x2-xml.png"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect3240"
+       width="4"
+       height="0"
+       x="14.5"
+       y="200.36218"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\td-2x2.png"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968" />
+    <image
+       y="-134.73892"
+       x="537.6557"
+       id="image2512"
+       height="55.444813"
+       width="176.95152"
+       sodipodi:absref="C:\src\vizstack-svn\trunk\doc\fx5600-backbracket.png"
+       xlink:href="fx5600-backbracket.png"
+       transform="matrix(0,1,-1,0,0,0)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\td-2x2-schematic.png"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#e54500;stroke-width:2.42972565;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect2516"
+       width="22.535686"
+       height="58.598083"
+       x="80.988815"
+       y="629.16302"
+       ry="0"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\td-2x2-schematic.png"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#ff0000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect3288"
+       width="0"
+       height="0"
+       x="367.69562"
+       y="135.24463"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\td-2x2.png"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968" />
+    <path
+       style="fill:#00ff00;fill-opacity:1;fill-rule:evenodd;stroke:#e54500;stroke-width:7;stroke-linecap:butt;stroke-linejoin:miter;marker-end:none;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 102.631,654.92654 C 150.00715,654.92654 150.00715,654.92654 150.00715,654.92654"
+       id="path3290"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\td-2x2-schematic.png"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#e54500;stroke-width:2.42972565;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect2485"
+       width="22.535686"
+       height="58.598083"
+       x="80.640915"
+       y="566.27222"
+       ry="0"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\td-2x2-schematic.png"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968" />
+    <image
+       y="-135.79515"
+       x="739.03668"
+       id="image4055"
+       height="55.444813"
+       width="176.95152"
+       sodipodi:absref="C:\src\vizstack-svn\trunk\doc\fx5600-backbracket.png"
+       xlink:href="fx5600-backbracket.png"
+       transform="matrix(0,1,-1,0,0,0)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\td-2x2-schematic.png"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#e54500;stroke-width:2.42972565;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect4057"
+       width="22.535686"
+       height="58.598083"
+       x="82.045067"
+       y="830.54401"
+       ry="0"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\td-2x2-schematic.png"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#e54500;stroke-width:2.42972565;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect4063"
+       width="22.535686"
+       height="58.598083"
+       x="81.697166"
+       y="767.6532"
+       ry="0"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\td-2x2-schematic.png"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968" />
+    <image
+       y="613.28656"
+       x="155.13771"
+       id="image2465"
+       height="87.44178"
+       width="131.97398"
+       sodipodi:absref="C:\src\vizstack-svn\trunk\doc\LP3065-front-nostand-transparent-screen.png"
+       xlink:href="LP3065-front-nostand-transparent-screen.png" />
+    <path
+       style="fill:#e54500;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 145.07465,645.02705 L 145.07465,668.36157 L 165.58076,656.22003 L 145.07465,645.02705 z"
+       id="path5106"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\td-2x2-schematic.png" />
+    <image
+       y="613.36859"
+       x="288.2735"
+       id="image2469"
+       height="87.44178"
+       width="131.97398"
+       sodipodi:absref="C:\src\vizstack-svn\trunk\doc\LP3065-front-nostand-transparent-screen.png"
+       xlink:href="LP3065-front-nostand-transparent-screen.png" />
+    <path
+       style="fill:#e54500;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 367.00092,601.91438 L 343.6664,601.91438 L 355.80794,622.42049 L 367.00092,601.91438 z"
+       id="path2489"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\td-2x2-schematic.png" />
+    <image
+       y="702.34277"
+       x="154.04453"
+       id="image2471"
+       height="87.44178"
+       width="131.97398"
+       sodipodi:absref="C:\src\vizstack-svn\trunk\doc\LP3065-front-nostand-transparent-screen.png"
+       xlink:href="LP3065-front-nostand-transparent-screen.png" />
+    <image
+       y="703.04987"
+       x="287.68768"
+       id="image2473"
+       height="87.44178"
+       width="131.97398"
+       sodipodi:absref="C:\src\vizstack-svn\trunk\doc\LP3065-front-nostand-transparent-screen.png"
+       xlink:href="LP3065-front-nostand-transparent-screen.png" />
+    <path
+       style="fill:#e54500;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 372.05715,797.8015 L 348.72263,797.8015 L 360.86417,777.29539 L 372.05715,797.8015 z"
+       id="path4069"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\td-2x2-schematic.png" />
+    <path
+       style="fill:#e54500;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 232.99168,796.7431 L 209.65716,796.7431 L 221.7987,776.23699 L 232.99168,796.7431 z"
+       id="path2475"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\td-2x2-schematic.png" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#e54500;stroke-width:5;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none"
+       d="M 105.35891,858.61493 L 221.32442,858.61493 L 221.32442,796.38953"
+       id="path2477" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#e54500;stroke-width:5;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none"
+       d="M 102.53048,572.9438 L 356.38181,572.9438 L 356.38181,602.64228"
+       id="path2479" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#e54500;stroke-width:5;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none"
+       d="M 79.903064,802.7535 L 59.396968,802.7535 L 59.396968,942.76063 L 359.91734,942.76063 L 359.91734,797.80375"
+       id="path2481" />
+  </g>
+</svg>

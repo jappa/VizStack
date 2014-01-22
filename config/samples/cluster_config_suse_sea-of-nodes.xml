@@ -1,0 +1,104 @@
+<?xml version="1.0" ?>
+
+<systemconfig 
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /etc/vizstack/schema/systemconfig.xsd" >
+	<system>
+		<type>sea_of_nodes</type>
+		<master>slestest1</master>
+		<master_port>50000</master_port>
+		<master_auth>Munge</master_auth>
+	</system>
+	<nodes>
+		<node>
+			<name>slestest1</name>
+			<model>HP xw8600 Workstation</model>
+			<gpu>
+				<index>0</index>
+				<bus_id>PCI:96:0:0</bus_id>
+				<type>Quadro FX 5800</type>
+			</gpu>
+			<gpu>
+				<index>1</index>
+				<bus_id>PCI:128:0:0</bus_id>
+				<type>Quadro FX 5800</type>
+			</gpu>
+			<x_server><type>normal</type><range><from>0</from><to>0</to></range></x_server> <!-- :0 for RGS -->
+			<x_server><type>virtual</type><range><from>1</from><to>1</to></range></x_server> <!-- virtual :1 for TurboVNC -->
+			<x_server><type>normal</type><range><from>2</from><to>10</to></range></x_server> <!-- servers for generic use -->
+		</node>
+		<node>
+			<name>slestest2</name>
+			<model>HP xw9400 Workstation</model>
+			<gpu>
+				<index>0</index>
+				<bus_id>PCI:24:0:0</bus_id>
+				<type>Quadro FX 5500</type>
+			</gpu>
+			<x_server><type>normal</type><range><from>0</from><to>0</to></range></x_server> <!-- :0 for RGS -->
+			<x_server><type>virtual</type><range><from>1</from><to>1</to></range></x_server> <!-- virtual :1 for TurboVNC -->
+			<x_server><type>normal</type><range><from>2</from><to>10</to></range></x_server> <!-- servers for generic use -->
+		</node>
+		<node>
+			<name>slestest3</name>
+			<model>ProLiant DL160 G5</model>
+			<gpu>
+				<index>0</index>
+				<bus_id>PCI:10:0:0</bus_id>
+				<type>Quadro FX 3700</type>
+			</gpu>
+			<x_server><type>normal</type><range><from>0</from><to>0</to></range></x_server> <!-- :0 for RGS -->
+			<x_server><type>virtual</type><range><from>1</from><to>1</to></range></x_server> <!-- virtual :1 for TurboVNC -->
+			<x_server><type>normal</type><range><from>2</from><to>10</to></range></x_server> <!-- servers for generic use -->
+		</node>
+		<node>
+			<name>slestest4</name>
+			<model>HP xw8600 Workstation</model>
+			<gpu>
+				<index>0</index>
+				<bus_id>PCI:96:0:0</bus_id>
+				<type>Quadro FX 5600</type>
+			</gpu>
+			<gpu>
+				<index>1</index>
+				<bus_id>PCI:128:0:0</bus_id>
+				<type>Quadro FX 5600</type>
+			</gpu>
+			<x_server><type>normal</type><range><from>0</from><to>0</to></range></x_server> <!-- :0 for RGS -->
+			<x_server><type>virtual</type><range><from>1</from><to>1</to></range></x_server> <!-- virtual :1 for TurboVNC -->
+			<x_server><type>normal</type><range><from>2</from><to>10</to></range></x_server> <!-- servers for generic use -->
+		</node>
+
+		<node>
+			<name>slestest5</name>
+			<model>HP xw9400 Workstation</model>
+			<gpu>
+				<index>0</index>
+				<bus_id>PCI:24:0:0</bus_id>
+				<type>Quadro FX 4600</type>
+			</gpu>
+			<x_server><type>normal</type><range><from>0</from><to>0</to></range></x_server> <!-- :0 for RGS -->
+			<x_server><type>virtual</type><range><from>1</from><to>1</to></range></x_server> <!-- virtual :1 for TurboVNC -->
+			<x_server><type>normal</type><range><from>2</from><to>10</to></range></x_server> <!-- servers for generic use -->
+		</node>
+
+	</nodes>
+
+	<scheduler>
+		<type>slurm</type> <!-- specify that this node is managed by "slurm" type of scheduler -->
+	</scheduler>
+
+	<resourceGroup>
+		<name>tile2x1</name>
+		<handler>tiled_display</handler>
+		<handler_params>num_tiles=[1,1];block_type="gpu";block_display_layout=[2,1];display_device="LP3065";display_mode="1280x800_60";tile_resolution=[1280,800];</handler_params>
+		<resources>
+			<reslist> 
+				<res><serverconfig><hostname>slestest1</hostname><server_number>0</server_number></serverconfig></res>
+				<res><gpu><hostname>slestest1</hostname><index>0</index></gpu></res>
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+</systemconfig>

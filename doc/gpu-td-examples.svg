@@ -1,0 +1,645 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="744.09448819"
+   height="1052.3622047"
+   id="svg2"
+   sodipodi:version="0.32"
+   inkscape:version="0.46"
+   sodipodi:docname="gpu-td-examples.svg"
+   inkscape:output_extension="org.inkscape.output.svg.inkscape">
+  <defs
+     id="defs4">
+    <marker
+       inkscape:stockid="Arrow1Lend"
+       orient="auto"
+       refY="0.0"
+       refX="0.0"
+       id="Arrow1Lend"
+       style="overflow:visible;">
+      <path
+         id="path3712"
+         d="M 0.0,0.0 L 5.0,-5.0 L -12.5,0.0 L 5.0,5.0 L 0.0,0.0 z "
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1.0pt;marker-start:none;"
+         transform="scale(0.8) rotate(180) translate(12.5,0)" />
+    </marker>
+    <inkscape:perspective
+       sodipodi:type="inkscape:persp3d"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       id="perspective10" />
+    <inkscape:perspective
+       id="perspective2390"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective2403"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       sodipodi:type="inkscape:persp3d" />
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     gridtolerance="10000"
+     guidetolerance="10"
+     objecttolerance="10"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="1.4142136"
+     inkscape:cx="518.52509"
+     inkscape:cy="496.23875"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="2560"
+     inkscape:window-height="1544"
+     inkscape:window-x="0"
+     inkscape:window-y="22" />
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <g
+       id="g2528"
+       transform="translate(-249.13247,-52.355499)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"
+       inkscape:tile-cx="183.84776"
+       inkscape:tile-cy="319.79958"
+       inkscape:tile-w="43"
+       inkscape:tile-h="37"
+       inkscape:tile-x0="162.34776"
+       inkscape:tile-y0="301.29958">
+      <rect
+         y="354.36218"
+         x="362"
+         height="37"
+         width="43"
+         id="rect2530"
+         style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         id="text2532"
+         y="378.60144"
+         x="379.70117"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+         xml:space="preserve"><tspan
+           y="378.60144"
+           x="379.70117"
+           id="tspan2534"
+           sodipodi:role="line">0</tspan></text>
+    </g>
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#g2528"
+       xlink:href="#g2528"
+       id="use2560"
+       transform="translate(-2.1e-6,3.7627074e-8)"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:tile-cx="76.367528"
+       inkscape:tile-cy="320.50668"
+       inkscape:tile-w="43"
+       inkscape:tile-h="37"
+       inkscape:tile-x0="54.867528"
+       inkscape:tile-y0="302.00668"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="111.34169"
+       y="404.87375"
+       id="text2572"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
+         sodipodi:role="line"
+         id="tspan2574"
+         x="111.34169"
+         y="404.87375">Number of Blocks = 3x2</tspan><tspan
+         sodipodi:role="line"
+         x="111.34169"
+         y="419.87375"
+         id="tspan2576">Block Display Layout = 1x1</tspan></text>
+    <g
+       id="g2607"
+       transform="translate(-262.46113,-48.01359)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"
+       inkscape:tile-cx="388.90872"
+       inkscape:tile-cy="329.69907"
+       inkscape:tile-w="48.333031"
+       inkscape:tile-h="81.333023"
+       inkscape:tile-x0="364.74221"
+       inkscape:tile-y0="289.03256">
+      <g
+         transform="translate(186.5,-5)"
+         id="g2609">
+        <rect
+           style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect2611"
+           width="43"
+           height="37"
+           x="362"
+           y="354.36218" />
+        <text
+           xml:space="preserve"
+           style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+           x="379.70117"
+           y="378.60144"
+           id="text2613"><tspan
+             sodipodi:role="line"
+             id="tspan2615"
+             x="379.70117"
+             y="378.60144">0</tspan></text>
+      </g>
+      <g
+         transform="translate(186.5,34.5)"
+         id="g2617">
+        <rect
+           style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect2619"
+           width="43"
+           height="37"
+           x="362"
+           y="354.36218" />
+        <text
+           xml:space="preserve"
+           style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+           x="379.70117"
+           y="378.60144"
+           id="text2621"><tspan
+             sodipodi:role="line"
+             id="tspan2623"
+             x="379.70117"
+             y="378.60144">1</tspan></text>
+      </g>
+      <rect
+         y="346.94565"
+         x="546.0835"
+         height="81.333023"
+         width="48.333031"
+         id="rect2625"
+         style="opacity:0.98999999;fill:none;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+    </g>
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#g2607"
+       xlink:href="#g2607"
+       id="use2645"
+       width="744.09448"
+       height="1052.3622"
+       transform="translate(-2.1e-6,3.7627494e-8)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#g2607"
+       xlink:href="#g2607"
+       transform="translate(53.166334,3.7627494e-8)"
+       id="use2647"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#g2607"
+       xlink:href="#g2607"
+       transform="translate(106.33267,3.7627494e-8)"
+       id="use2649"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="281.923"
+       y="405.20758"
+       id="text2651"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
+         sodipodi:role="line"
+         id="tspan2653"
+         x="281.923"
+         y="405.20758">Number of Blocks = 3x1</tspan><tspan
+         sodipodi:role="line"
+         x="281.923"
+         y="420.20758"
+         id="tspan2655">Block Display Layout = 1x2</tspan></text>
+    <g
+       id="g2699"
+       transform="translate(155.58072,-601.39433)"
+       inkscape:tile-cx="456.79097"
+       inkscape:tile-cy="319.79958"
+       inkscape:tile-w="93.58786"
+       inkscape:tile-h="42.44215"
+       inkscape:tile-x0="409.99704"
+       inkscape:tile-y0="298.57851"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90">
+      <g
+         transform="translate(-47.44722,548.06409)"
+         id="g2701">
+        <rect
+           style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect2703"
+           width="43"
+           height="37"
+           x="362"
+           y="354.36218" />
+        <text
+           xml:space="preserve"
+           style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+           x="379.70117"
+           y="378.60144"
+           id="text2705"><tspan
+             sodipodi:role="line"
+             id="tspan2707"
+             x="379.70117"
+             y="378.60144">0</tspan></text>
+      </g>
+      <g
+         transform="translate(-1.80077,547.97221)"
+         id="g2709">
+        <rect
+           style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect2711"
+           width="43"
+           height="37"
+           x="362"
+           y="354.36218" />
+        <text
+           xml:space="preserve"
+           style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+           x="379.70117"
+           y="378.60144"
+           id="text2713"><tspan
+             sodipodi:role="line"
+             id="tspan2715"
+             x="379.70117"
+             y="378.60144">1</tspan></text>
+      </g>
+      <rect
+         y="899.97284"
+         x="312.41632"
+         height="42.44215"
+         width="93.58786"
+         id="rect2717"
+         style="opacity:0.98999999;fill:none;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+    </g>
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#g2699"
+       xlink:href="#g2699"
+       id="use2767"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#g2699"
+       xlink:href="#g2699"
+       transform="translate(0,46.686365)"
+       id="use2769"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#g2699"
+       xlink:href="#g2699"
+       transform="translate(0,93.37273)"
+       id="use2771"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#g2699"
+       xlink:href="#g2699"
+       transform="translate(98.26725,0)"
+       id="use2773"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#g2699"
+       xlink:href="#g2699"
+       transform="translate(98.26725,46.686365)"
+       id="use2775"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#g2699"
+       xlink:href="#g2699"
+       transform="translate(98.26725,93.37273)"
+       id="use2777"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="465.771"
+       y="456.11932"
+       id="text2779"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
+         sodipodi:role="line"
+         id="tspan2781"
+         x="465.771"
+         y="456.11932">Number of Blocks = 2x3</tspan><tspan
+         sodipodi:role="line"
+         x="465.771"
+         y="471.11932"
+         id="tspan2783">Block Display Layout = 2x1</tspan></text>
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#g2607"
+       xlink:href="#g2607"
+       id="use2785"
+       width="744.09448"
+       height="1052.3622"
+       transform="translate(-121.88582,152.02795)"
+       inkscape:tile-cx="79.903061"
+       inkscape:tile-cy="491.62652"
+       inkscape:tile-w="48.333031"
+       inkscape:tile-h="81.333023"
+       inkscape:tile-x0="55.736546"
+       inkscape:tile-y0="450.96001"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#use2785"
+       xlink:href="#use2785"
+       id="use2795"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#use2785"
+       xlink:href="#use2785"
+       transform="translate(0,85.399674)"
+       id="use2797"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#use2785"
+       xlink:href="#use2785"
+       transform="translate(53.166334,0)"
+       id="use2799"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#use2785"
+       xlink:href="#use2785"
+       transform="translate(53.166334,85.399674)"
+       id="use2801"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="143.00276"
+       y="637.13867"
+       id="text2803"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
+         sodipodi:role="line"
+         id="tspan2805"
+         x="143.00276"
+         y="637.13867">Number of Blocks = 2x2</tspan><tspan
+         sodipodi:role="line"
+         x="143.00276"
+         y="652.13867"
+         id="tspan2807">Block Display Layout = 1x2</tspan></text>
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#g2699"
+       xlink:href="#g2699"
+       id="use2809"
+       transform="translate(-142.9777,225.56705)"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:tile-cx="299.81327"
+       inkscape:tile-cy="545.36663"
+       inkscape:tile-w="93.58786"
+       inkscape:tile-h="42.44215"
+       inkscape:tile-x0="253.01934"
+       inkscape:tile-y0="524.14556"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#use2809"
+       xlink:href="#use2809"
+       id="use2817"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#use2809"
+       xlink:href="#use2809"
+       transform="translate(98.26725,0)"
+       id="use2819"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#use2809"
+       xlink:href="#use2809"
+       transform="translate(196.53451,0)"
+       id="use2821"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="406.939"
+       y="586.93408"
+       id="text2823"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
+         sodipodi:role="line"
+         id="tspan2825"
+         x="406.939"
+         y="586.93408">Number of Blocks = 3x1</tspan><tspan
+         sodipodi:role="line"
+         x="406.939"
+         y="601.93408"
+         id="tspan2827">Block Display Layout = 2x1</tspan></text>
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#use2560"
+       xlink:href="#use2560"
+       id="use2829"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#use2560"
+       xlink:href="#use2560"
+       transform="translate(0,38.85)"
+       id="use2831"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#use2560"
+       xlink:href="#use2560"
+       transform="translate(45.15,0)"
+       id="use2833"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#use2560"
+       xlink:href="#use2560"
+       transform="translate(45.15,38.85)"
+       id="use2835"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#use2560"
+       xlink:href="#use2560"
+       transform="translate(90.3,0)"
+       id="use2837"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <use
+       x="0"
+       y="0"
+       inkscape:tiled-clone-of="#use2560"
+       xlink:href="#use2560"
+       transform="translate(90.3,38.85)"
+       id="use2839"
+       width="744.09448"
+       height="1052.3622"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-td-examples.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+  </g>
+</svg>

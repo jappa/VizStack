@@ -1,0 +1,35 @@
+<?xml version="1.0" ?>
+<!--
+
+The Quadro FX 5800.
+
+4 GB framebuffer memory, 3 display outputs.  Also included inside the QuadroPlex 2200 D2.
+
+-->
+<gpu 
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/gpuconfig.xsd">
+
+		<model>Quadro FX 5800</model>
+		<vendor>NVIDIA Corporation</vendor>
+		<scanout_caps> <!-- Port 0 is DVI-I - i.e. capable of both Analog & Digital output -->
+			<index>0</index>
+			<type>digital</type>
+			<type>analog</type>
+		</scanout_caps>
+		<scanout_caps> <!-- Port 1 is also DVI-I -->
+			<index>1</index>
+			<type>digital</type>
+			<type>analog</type>
+		</scanout_caps>
+		<scanout_caps> <!-- Port 2 is a "DisplayPort", and capable of only Analog output. Adapters which convert "DisplayPort" to VGA need to have actual logic to do signal conversion - it's not just re-routing pins ! -->
+			<index>2</index>
+			<type>digital</type>
+		</scanout_caps>
+		<limits>
+			<max_width>8192</max_width>
+			<max_height>8192</max_height>
+		</limits>
+
+</gpu>

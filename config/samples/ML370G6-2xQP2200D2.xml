@@ -1,0 +1,58 @@
+<?xml version="1.0" ?>
+
+<!--
+
+An ML 370 with two QuadroPlex 2200 D2s connected to it. 
+
+GPU Bus IDs
+
+PCI:19:0:0   FIXME: find which slots these PCI IDs correspond to.
+PCI:20:0:0
+
+PCI:45:0:0   
+PCI:46:0:0
+
+-->
+<systemconfig 
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /etc/vizstack/schema/systemconfig.xsd" >
+	<system>
+		<type>standalone</type>
+	</system>
+	<nodes>
+		<node>
+			<name>localhost</name>
+			<model>ProLiant ML370 G6</model>
+			<gpu>
+				<index>0</index>
+				<bus_id>PCI:19:0:0</bus_id>
+				<type>Quadro FX 5800</type>
+			</gpu>
+			<gpu>
+				<index>1</index>
+				<bus_id>PCI:20:0:0</bus_id>
+				<type>Quadro FX 5800</type>
+			</gpu>
+			<gpu>
+				<index>2</index>
+				<bus_id>PCI:45:0:0</bus_id>
+				<type>Quadro FX 5800</type>
+			</gpu>
+			<gpu>
+				<index>3</index>
+				<bus_id>PCI:46:0:0</bus_id>
+				<type>Quadro FX 5800</type>
+			</gpu>
+			<input_device>
+				<type>keyboard</type>
+				<device>DefaultKeyboard</device>
+			</input_device>
+			<input_device>
+				<type>mouse</type>
+				<device>DefaultMouse</device>
+			</input_device>
+			<x_server><range><from>0</from><to>10</to></range></x_server>
+		</node>
+	</nodes>
+</systemconfig>

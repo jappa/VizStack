@@ -1,0 +1,531 @@
+#!/usr/bin/env python
+
+# VizStack - A Framework to manage visualization resources
+
+# Copyright (C) 2009-2010 Hewlett-Packard
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+"""
+viz-tvnc
+
+VizStack support for TurboVNC. User can run apps inside a TurboVNC server
+using "vglrun".
+
+"""
+
+# Add our python module path. On Ubuntu this doesn't
+# seem to get loaded from the remote access tools!
+import sys
+sys.path.append('/opt/vizstack/python')
+
+from vsapi import ResourceAccess, Screen, GPU, Server
+import vsapi
+from pprint import pprint
+from optparse import OptionParser, OptionGroup
+import re
+import time
+import string
+import socket
+import vsremotehelper
+import threading
+import os
+import copy
+
+defaultResolution = [1280,1024]
+desktopResLimit = [ [512,8192], [384, 8192] ]
+
+def startTVNC(tvncServer, xServer, resolution=defaultResolution, tvncClient=None):
+	"""
+	Start a TurboVNC server on vncServer.
+	OpenGL applications will use xServer to do the rendering.
+
+	tvncClient, if specified should be in the format "host[:port]". If specified,
+	a reverse connection will be setup to a "listening" TurboVNC client.
+
+	Returns the running TurboVNC process
+	"""
+
+	# Get screen 0 of the X server. This is where VirtualGL will do the rendering
+	screen = xServer.getScreen(0)
+	vglDISPLAY = xServer.getDISPLAY()
+	tvncDISPLAY = ":%d"%(tvncServer.getIndex())
+
+	# Get the scheduler object corresponding to GPU 0 on the real X server. This 
+	# allows us to run the TurboVNC server
+	gpu = screen.getGPUs()[0]
+	sched = gpu.getSchedulable()
+
+	# Generate the command need for the TurboVNC server
+	cmd = ["/usr/bin/env" ,"VGL_DISPLAY=%s"%(vglDISPLAY),"/opt/vizstack/bin/vs-vncserver" ,":%d"%(tvncServer.getIndex()), "-fg", "-geometry","%dx%d"%(resolution[0], resolution[1])]
+	# If sepcified, add revese connection
+	if tvncClient is not None:
+		cmd += ["-rc","%s"%(tvncClient)]
+
+	# Start the TurboVNC server
+	# Suppress output messages by redirecting output to /dev/null
+	tvncProc = sched.run(cmd, errFile = open("/dev/null","w"))
+
+	# Return the TurboVNC server
+	return tvncProc
+
+def __parseArgs(arg_list):
+	parser = OptionParser(description=
+"""Starts an interactive remote desktop session using TurboVNC.
+
+By default, a GPU is picked up automatically for you to use. You may also choose a GPU by passing one/more of the options described below.  You may also run a TurboVNC client in 'listen' mode on your desktop, and have the started desktop show up automatically by using the '-c' option.
+""")
+	group = OptionGroup(parser, "Resource Allocation Options")
+	group.add_option("-x", "--exclusive", dest="exclusive", action="store_true", default=False, help="Allocate a complete GPU for this session. By default, this script allocates a shared GPU for you..")
+	group.add_option("-b", "--batch-mode", dest="batch_mode", action="store_true", default=False, help="Use this if you are running this script via a batch scheduler. This will direct the script to allocate resources on the machine where the script is running")
+	group.add_option("--gpu-type", dest="gpu_type", help="Allocate a specific type of GPU for this remote session. Note that the GPU type will have spaces in it, so you will need to quote the string. Examples are \"Quadro FX 5800\", \"Quadro FX 1500\", etc. Use the --show-gpu-types option to print out a list of GPU types that may be potentially available.")
+	group.add_option("-N", "--full-node", dest="full_node", default=False, action='store_true', help='Allocate all resources on a node(in exclusive mode) for use by the desktop. Use this if you want to use applications that attempt to use ALL gpus found in the system, and there is no way to tell the application which GPUs to use.')
+	group.add_option("-a", "--allocate-from", dest="allocate_from", action="append", help="Allocate a GPU on this hostname. If you use this option multiple times, then a single GPU from one of the specified hosts will be used. Note that the allocation is independent of the order in which the hostnames are specified on the command line. The behaviour of this option changes when one of --specific-gpus or --specific-nodes is used, as noted below.")
+	parser.add_option_group(group)
+	group = OptionGroup(parser, "Additional Resource Allocation Options")
+	group.add_option("--specific-gpus", dest="specific_gpus", action="store_true", default=False, help="Use this if you want to allocate specific GPUs. Use the -a option one or more times to specify the GPUs you need. Note that only the first GPU will be used to power the VirtualGL/TurboVNC session. The other GPUs will be setup with X servers, and information about them will be displayed. All GPUs are allocated with exclusive access.")
+	group.add_option("--specific-nodes", dest="specific_nodes", action="store_true", default=False, help="Use this if you want to allocate specific nodes. Use the -a option one or more times to specify the nodes you need. Note that only a matching  GPU on the first node will be used to power the VirtualGL/TurboVNC session. The other GPUs will be setup with X servers, and information about them will be displayed. All GPUs are allocated with exclusive access.")
+	parser.add_option_group(group)
+	group = OptionGroup(parser, "TurboVNC options")
+	group.add_option("-g", "--geometry", dest="desktop_resolution", help='The resolution to run the desktop at. This can be any "<width>x<height>" value, and doesn\'t need to match any display device resolution. Larger resolutions may result in higher network bandwidth usage, CPU utilization and sluggish performance')
+	group.add_option("-c", "--connect-to", dest="listening_client", help='This parameter needs to be in the format \"host[:port]". Tells the started TurboVNC server to connect to a listening TurboVNC viewer on the given host and port. You need to start the TurboVNC client in the "listening" mode prior to running this script. If you did not specify a listening port number explicitly, then the client will be listening on port 5500, and this is taken as the default port. Note that failure to connect the TurboVNC server to the specified client is not treated as a failure, and the desktop session continues to run.')
+	parser.add_option_group(group)
+	group = OptionGroup(parser, "Miscellaneous options")
+	group.add_option("--show-gpu-types", dest="show_gpu_types", action="store_true", default=False, help="Prints out a list of GPU types that are potentially available for allocation")
+	group.add_option("--automation", dest="automation", action="store_true", default=False, help="This option is intended for automation use by the VizStack Remote Access tools. Not intended for command line usage.")
+	parser.add_option_group(group)
+	(options, args) = parser.parse_args(sys.argv[1:])
+
+	# Extra arguments are errors.
+	if len(args)>0:
+		print >>sys.stderr # empty line
+		print >>sys.stderr, "Invalid argument(s) on command line : %s"%(string.join(args,","))
+		print >>sys.stderr # empty line
+		parser.print_help()
+		sys.exit(-1)
+
+	return (options, args)
+
+def showError(isAutomation, msg):
+	if isAutomation:
+		vsremotehelper.sendMessage("<response><error>%s</error></response>"%(msg))
+	else:
+		print >>sys.stderr, msg
+
+#
+# Script body starts from here
+if __name__ == "__main__":
+	(options, args) = __parseArgs(sys.argv)
+
+	isAutomation = options.automation
+	if isAutomation:
+		vsremotehelper.sendMessage("viz-tvnc")
+
+	# If user does not specify any resolution, then we'll run at the script
+	# default resolution
+	useResolution = defaultResolution
+
+	# Validate and use any user specified resolution
+	if(options.desktop_resolution):
+		ob = re.match("([0-9]+)x([0-9]+)", options.desktop_resolution)
+		if ob is None:
+			showError(isAutomation,"Invalid desktop resolution '%s'"%(options.desktop_resolution))
+			sys.exit(-1)
+		hRes = int(ob.group(1))
+		vRes = int(ob.group(2))
+		if hRes < desktopResLimit[0][0] or hRes > desktopResLimit[0][1]:
+			showError(isAutomation,"Width of desktop must be in the range %s"%(desktopResLimit[0]))
+			sys.exit(-1)
+		if vRes < desktopResLimit[1][0] or vRes > desktopResLimit[1][1]:
+			showError(isAutomation, "Height of desktop must be in the range %s"%(desktopResLimit[1]))
+			sys.exit(-1)
+		if (hRes%8)>0:
+			showError(isAutomation, "Desktop width(%d) is not a multiple of 8"%(hRes))
+			sys.exit(-1)
+		# use this resolution
+		useResolution = [hRes, vRes]
+
+	if (options.batch_mode == True) and (options.allocate_from is not None) and (len(options.allocate_from)>0):
+		showError(isAutomation, "You are not allowed to use the options -b (batch mode) and -a (allocation node choice) together!")
+		sys.exit(-1)
+
+	if ((options.specific_gpus == True) or (options.specific_nodes == True)) and (len(options.allocate_from)==0):
+		showError(isAutomateion, "You need to use the -a option one or more times")
+		sys.exit(-1)
+
+	# Connect to the SSM
+	try:
+		ra = ResourceAccess()
+	except vsapi.VizError, e:
+		showError(isAutomation, str(e))
+		sys.exit(-1)
+
+	# If we have a need to get the type of GPUs, then do so
+	if (options.show_gpu_types == True) or (options.gpu_type is not None):
+		gpuList = ra.queryResources(vsapi.GPU())
+		# Compute how many of which type are present
+		gpuTypeInfo = {}
+		for gpu in gpuList:
+		        gpuType = gpu.getType()
+		        try:
+		                gpuTypeInfo[gpuType] += 1
+		        except KeyError:
+		                gpuTypeInfo[gpuType] = 1
+
+		if options.show_gpu_types == True:
+			# If the user only asked us to print out GPU type information,
+			# then we print it out
+			if isAutomation:
+				sendMessage("<response>")
+			for gpuType in gpuTypeInfo.keys():
+				# FIXME: should I print out information about how many are free at this instant ?
+				if isAutomation:
+					sendMessage("<gpu><type>%s</type><available>%d</available></gpu>"%(gpuType, gpuTypeInfo[gpuType]))
+				else:
+				        print "GPU type '%s', total available in system = %d"%(gpuType, gpuTypeInfo[gpuType])
+			if isAutomation:
+				sendMessage("<response>")
+			# Disconnect from the SSM
+			ra.stop()
+			# Exit with sucess
+			sys.exit(0)
+
+		if options.gpu_type is not None:
+			if not gpuTypeInfo.has_key(options.gpu_type):
+				errMsg = "Invalid GPU type '%s' passed on the command line.\nA valid value is one of %s.\nNote that you need to quote the string when running this script from the shell."%(options.gpu_type, gpuTypeInfo.keys())
+				showError(isAutomation, errMsg)
+				sys.exit(-1)
+
+	# Validate the host list if user asked for specific hosts
+	# This helps us print messages that make more sense for the
+	# user
+	hostList = []
+	uniqHostList = []
+	indexList = []
+	if options.allocate_from is not None:
+		# Get a list of all hostnames from the SSM
+		nodeList = ra.queryResources(vsapi.VizNode())
+		validHostList = []
+		for node in nodeList:
+		        validHostList.append(node.getHostName())
+
+		if options.specific_gpus:
+			for host in options.allocate_from:
+				parts = host.split("/")
+				hostList.append(parts[0])
+				indexList.append(int(parts[1]))
+		else:
+			hostList = options.allocate_from
+
+		# Find out what's not valid
+		invalidHostNames = filter(lambda x: x not in validHostList, hostList)
+
+		# And print them out
+		if len(invalidHostNames)>0:
+			errMsg = "The following hostname(s) specified on the command line are invalid\n%s"%(invalidHostNames)
+			errMsg += "\nPlease ensure that they are indeed part of this system."
+			showError(isAutomation, errMsg)
+			sys.exit(-1)
+
+	for name in hostList:
+		if name not in uniqHostList:
+			uniqHostList.append(name)
+
+	# Specific gpus are always exclusive
+	if options.specific_gpus:
+		options.exclusive = True
+
+	# Specific nodes asked for are always FULL nodes
+	if options.specific_nodes:
+		options.full_node = True
+
+	# Full node implies exclusive access	
+	if options.full_node:
+		options.exclusive = True
+	
+	# Allocate resources needed for a TurboVNC/VirtualGL session
+	try:
+		# TurboVNC needs a virtual server
+		reqSrv = Server(serverType=vsapi.VIRTUAL_SERVER)
+
+		# And a GPU
+		reqGPU = vsapi.GPU()
+		if options.gpu_type is not None:
+			reqGPU.setType(options.gpu_type)
+
+		if options.batch_mode:
+			# we'll allocate the node from where we were launched
+			reqSrv.setHostName(socket.gethostname())
+			
+		if options.exclusive:
+			# Allocate three resources : 
+			# an X server, a GPU, and a virtual X server
+			#
+			# The X server & GPU combination will be used by VirtualGL
+			# to render the 3D apps in the TurboVNC session.
+			#
+			# If we are allocated via a batch mechanism, then the batch scheduler
+			# has to be configured in a way that it does not over-provision GPUs
+			# Misconfiguration can cause user scripts to fail.
+			if not options.full_node:
+				if options.specific_gpus:
+					reqGPU.setHostName(hostList[0])
+					reqGPU.setIndex(indexList[0])
+				reqList = [ [ reqGPU, reqSrv, Server() ] ]
+			else:
+				nodeToAlloc = vsapi.VizNode()
+				if options.specific_nodes:
+					reqGPU.setHostName(hostList[0])
+					
+				nodeToAlloc.setResources([reqGPU, reqSrv, Server()])
+				reqList = [ nodeToAlloc ]
+		else:
+			# Ask for a shared GPU. The server will come from it
+			reqGPU.setShared(True)
+			reqList = [ [ reqGPU, reqSrv ] ]
+
+		# If more than one specific nodes or GPUs have been asked for, then do include them in the requirement as well.
+		if options.specific_gpus:
+			for i in range(1, len(hostList)):
+				useSrv = copy.deepcopy(reqSrv)
+				useGPU = copy.deepcopy(reqGPU)
+				useGPU.setHostName(hostList[i])
+				useGPU.setIndex(indexList[i])
+				subReq = [ useGPU, Server() ]
+				reqList.append(subReq)
+		elif options.specific_nodes:
+			for i in range(1, len(hostList)):
+				useNode = vsapi.VizNode(hostList[i])
+				reqList.append(useNode)
+		#pprint(reqList)
+		alloc = ra.allocate(reqList, uniqHostList)
+	except vsapi.VizError, e:
+		print e
+		showError(isAutomation, "Unable to allocate resources needed for a TurboVNC desktop session. Please try again later")
+		sys.exit(-1)
+
+	allocRes = alloc.getResources()
+
+	extraSetupList = []
+	if not options.full_node:
+		tvncServer = allocRes[0][1]
+		gpu = allocRes[0][0]
+		if options.exclusive:
+			xServer = allocRes[0][2]
+		else:
+			xServer = gpu.getSharedServer()
+	else:
+		allocNode = allocRes[0]
+		# We've allocated a whole node; so pick resources from there
+		# We are guaranteed to have these !
+		allNodeServers = vsapi.findMatchingObjects(vsapi.Server, vsapi.Server(), allocNode)
+		allNodeGPUs = vsapi.findMatchingObjects(vsapi.GPU, vsapi.GPU(), allocNode)
+
+		for idx in range(1,len(allNodeGPUs)):
+			extraSetupList.append([allNodeGPUs[idx], allNodeServers[idx]])
+
+		tvncServer = vsapi.findMatchingObjects(vsapi.Server, reqSrv, allocNode)[0]
+		xServer = allNodeServers[0]
+		gpu = allNodeGPUs[0]
+
+	# Setup the X server that does the openGL rendering
+	screen = Screen(0)
+	if gpu.getAllowNoScanOut():
+		# Configure a virtual framebuffer if possible
+		gpu.clearScanouts()
+		screen.setFBProperty('resolution', useResolution)
+	else:
+		# Configure a dummy display if no display is connected
+		# already. Needed for GeForce GPUs to work.
+		if len(gpu.getScanouts())==0:
+			sc = gpu.getScanoutCaps()
+			gpu.setScanout(0, 'HP LP2065', sc[0][0])
+	screen.setGPU(gpu)
+	xServer.addScreen(screen)
+
+	# Setup the other X servers (allocated due to specific-gpus & specific-nodes)
+	if options.specific_gpus:
+		for allocPair in allocRes[1:]:
+			extraSetupList.append(allocPair)
+	elif options.specific_nodes:
+		for thisNode in allocRes[1:]:
+			nodeServers = vsapi.findMatchingObjects(vsapi.Server, vsapi.Server(), thisNode)
+			nodeGPUs = vsapi.findMatchingObjects(vsapi.GPU, vsapi.GPU(), thisNode)
+			for idx in range(len(nodeGPUs)):
+				extraSetupList.append([nodeGPUs[idx], nodeServers[idx]])
+
+	if len(extraSetupList)>0:
+		for thisPair in extraSetupList:
+			thisGPU = thisPair[0]
+			thisServer = thisPair[1]
+
+			thisScr = Screen(0)
+			if thisGPU.getAllowNoScanOut():
+				# VirtualGL uses a pbuffer anyway, so we choose a small resolution
+				# virtual framebuffer
+				thisGPU.clearScanouts()
+				thisScr.setFBProperty('resolution',[640,480])
+			else:
+				# Configure a dummy display if no display is connected
+				# already. Needed for GeForce GPUs to work.
+				if len(gpu.getScanouts())==0:
+					sc = thisGPU.getScanoutCaps()
+					thisGPU.setScanout(0, 'HP LP2065', sc[0][0])
+			thisScr.setGPU(thisGPU)
+			thisServer.addScreen(thisScr)
+		print 'NOTE: Configured %d additional GPUs for rendering, but these are not being used this script.\nThese GPUs are :'%(len(extraSetupList))
+		for thisPair in extraSetupList:
+			thisGPU = thisPair[0]
+			thisServer = thisPair[1]
+			print '  GPU %s/%d accessible using X server %s%s'%(thisGPU.getHostName(), thisGPU.getIndex(), thisServer.getHostName(), thisServer.getDISPLAY())
+		print
+	
+	
+	# Propagate the X server configuration to the SSM
+	alloc.setupViz(ra)
+
+	# Start the X server. This call returns when the X server is
+	# actually available for rendering.
+	#
+	# It does not do anything for the tvncServer
+	#
+	alloc.startViz(ra)
+
+	# Start TurboVNC
+	if isAutomation==False:
+		print "Starting Desktop with resolution %dx%d"%(useResolution[0], useResolution[1])
+	tvncProc = startTVNC(tvncServer, xServer, useResolution, options.listening_client)
+
+	# Wait for the TurboVNC server to come up
+	try:
+		ra.waitXState(alloc, 1, 10, [tvncServer])
+
+		# Get information about the node where the TurboVNC server is running
+		tvncNode = ra.queryResources(vsapi.VizNode(tvncServer.getHostName()))[0]
+		try:
+			externalName = tvncNode.getProperty('remote_hostname')
+		except KeyError, e:
+			if isAutomation==False:
+				print >>sys.stderr, "Failed to get the remote access hostname. Will use local hostname."
+			externalName = xServer.getHostName()
+			if externalName == "localhost": # Localhost needs to be expanded for single node case
+				externalName = socket.gethostname()
+
+		# Give out information to the user about where to connect
+		userConnectsTo = "%s:%s"%(externalName, tvncServer.getIndex())
+		if isAutomation == False:
+			print "=============================================="
+			print "A desktop has been started for you at '%s' "%(userConnectsTo)
+			print ""
+			if options.listening_client is not None:
+				print "You requested a reverse connection to '%s'. If you had a"%(options.listening_client)
+				print "TurboVNC client listening for incoming connections, then"
+				print "you must be connected to the desktop by now. If not, then"
+				print "please use the TurboVNC viewer to connect to '%s' "%(userConnectsTo)
+			else:
+				print "Please use the TurboVNC viewer to connect to '%s' "%(userConnectsTo)
+			print ""
+			print "Note that this is a persistent session. You will need to"
+			print "logout from the desktop session to free this resource."
+			print ""
+			print "Inside your desktop, you need to use the 'vglrun' command"	
+			print "to run OpenGL applications. E.g., to run glxgears from the"
+			print "command prompt, use"
+			print
+			print "  $ vglrun glxgears"
+			print 
+			print "NOTE: If you plan to use any VizStack application scripts"
+			print "inside the TurboVNC session, then you don't need to prefix"
+			print "those with 'vglrun'"
+			print
+			print "e.g., to run avizo inside the TurboVNC session, you would use"
+			print "  $ viz_avizovr [options]"
+			print "instead of \"vglrun viz_avizovr [options]\""
+			print
+			print "=============================================="
+		else:
+			vsremotehelper.sendMessage("<response><connectTo>%s</connectTo></response>"%(userConnectsTo))
+
+	except vsapi.VizError, e:
+		showError(isAutomation,"TurboVNC server failed to start on %s%s. Please check that you have setup a password for TurboVNC on %s for the current user using /opt/TurboVNC/bin/vncpasswd"%(tvncServer.getHostName(), tvncServer.getDISPLAY(), tvncServer.getHostName()))
+		sys.exit(-1)
+	autoThread = None
+	if isAutomation==True:
+		class waitThread(threading.Thread):
+			def __init__(self, tvncProc):
+				threading.Thread.__init__(self)
+				self.doLoop = True
+				self.tvncProc = tvncProc
+			def run(self):
+				ret = None
+				while self.doLoop:
+					ret = vsremotehelper.waitProcessStdin(None)
+					if ret != 2:
+						break
+				if ret == 1:
+					try:
+						tvncProc.kill()
+					except:
+						pass
+
+		# Spawn the thread which waits on the remote end
+		autoThread = waitThread(alloc.getId())
+		autoThread.start()
+
+	#
+	# Wait till the TurboVNC server exits. This can happen by user logout,
+	# ^C or any other reason for which the TurboVNC server dies (including scheduler
+	# policy based process killing)
+	#
+	try:
+		tvncProc.wait()
+	except OSError, e:
+		# This can happen if the thread killed the TurboVNC process
+		# in "automation" mode.
+		pass
+	except KeyboardInterrupt, e:
+		# If the user presses ^C, then we need to still continue
+		# else there is no guarantee that the vncserver will die...
+		# We print out a message here so that user knows we're upto something!
+		if isAutomation==False:
+			print "Killing TurboVNC server"
+
+	if isAutomation==True:
+		autoThread.doLoop = False
+		autoThread.join()
+
+	# The Vnc server does not like to die easily. This will ensure a good death
+	sched = gpu.getSchedulable()
+	p = sched.run(
+	       ["/opt/TurboVNC/bin/vncserver","-kill",":%d"%(tvncServer.getIndex())],
+	       errFile = open("/dev/null","w"), outFile = open("/dev/null", "w"))
+	p.wait()
+
+	# Sometimes the VNC server dies, but the lock files remain.
+	# we clean these up too - else the next person using TurboVNC will suffer
+	p = sched.run(
+		["rm","-f","/tmp/.X%d-lock"%(tvncServer.getIndex()), "/tmp/.X11-unix/X%d"%(tvncServer.getIndex())],
+	       errFile = open("/dev/null","w"), outFile = open("/dev/null", "w"))
+	p.wait()
+
+	# Stop the real X server
+	alloc.stopViz(ra)
+
+	# Deallocate resources
+	ra.deallocate(alloc)
+
+	# Disconnect from the SSM - we're done!
+	ra.stop()

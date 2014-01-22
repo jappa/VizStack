@@ -1,0 +1,30 @@
+<?xml version="1.0" ?>
+
+<systemconfig 
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /etc/vizstack/schema/systemconfig.xsd" >
+	<system>
+		<type>standalone</type>
+	</system>
+	<nodes>
+		<node>
+			<name>localhost</name>
+			<model>DL785 G5</model>
+			<gpu>
+				<index>0</index>
+				<bus_id>PCI:64:0:0</bus_id>
+				<type>Quadro FX 5800</type>
+			</gpu>
+			<input_device>
+				<type>keyboard</type>
+				<device>DefaultKeyboard</device>
+			</input_device>
+			<input_device>
+				<type>mouse</type>
+				<device>DefaultMouse</device>
+			</input_device>
+			<x_server><range><from>0</from><to>10</to></range></x_server>
+		</node>
+	</nodes>
+</systemconfig>

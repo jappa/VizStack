@@ -1,0 +1,163 @@
+<?xml version="1.0" ?>
+
+<systemconfig 
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /etc/vizstack/schema/systemconfig.xsd" >
+
+<!-- 
+
+Sample VizStack System Configuration file. Provided here for reference purpose.
+
+This file contains four major chunks of information :
+
+1. Details of the master node. This is the node which runs the VizStack System State Manager. 
+
+2. Information about each node that will be managed by VizStack. This includes
+     - GPUs
+     - Input Devices
+       - Keyboard
+       - Mouse
+     - What X Servers to use
+       - "Normal" X servers. These control the GPUs
+       - "Virtual" X servers. Meant for use by virtual X servers, e.g. TurboVNC
+
+3. Which scheduler VizStack should use.
+
+4. Resource Group configuration. Currently, we support only tiled displays as resource groups.
+
+-->
+
+	<!--
+
+	Master node configuration
+
+	-->
+	<system>
+		<type>sea_of_nodes</type>        <!-- Type of system. Use sea_of_nodes for now. -->
+		<master>vizstack16</master>      <!-- You will run the SSM on this node. Typically this will be the head node of a cluster. Can be anywhere so long as it is reachable by the other nodes -->
+		<master_port>50000</master_port> <!-- The SSM will run on this port. VizStack pieces will connect to this port at runtime -->
+		<master_auth>Munge</master_auth> <!-- Use Munge for the authentating users to the SSM -->
+	</system>
+
+	<!--
+
+	Information about each node
+
+	-->
+	<nodes>
+		<!--
+
+		The first node
+
+		-->
+		<node>
+			<name>vizstack1</name>   <!-- Hostname of the node -->
+			<model>ProLiant DL160 G5</model> <!-- We really don't do anything with this now, but may do something with it in the future -->
+			<!-- 
+			A GPU of type "Quadro FX 3700" identified by BusID "10:0:0" on the PCI Bus.
+			index=0 represents that this is the first GPU on the system.
+			-->
+			<gpu>
+				<index>0</index>
+				<bus_id>PCI:10:0:0</bus_id>
+				<type>Quadro FX 3700</type>
+			</gpu>
+			<!--
+			A default keyboard, index=0 represents that this is the first (and only) keyboard
+			-->
+			<keyboard>
+				<index>0</index>
+				<type>DefaultKeyboard</type>
+			</keyboard>
+			<!--
+			A default mouse, index=0 represents that this is the first (and only) mouse
+			-->
+			<mouse>
+				<index>0</index>
+				<type>DefaultMouse</type>
+			</mouse>
+			<!-- A "normal" X Server :0 for RGS -->
+			<x_server><type>normal</type><range><from>0</from><to>0</to></range></x_server> 
+			<!-- A "virtual" X Server :1 for TurboVNC -->
+			<x_server><type>virtual</type><range><from>1</from><to>1</to></range></x_server> 
+			<!-- X Servers :2 to :10 for generic use. VizStack allocates X servers on a need basis from this pool -->
+			<x_server><type>normal</type><range><from>2</from><to>10</to></range></x_server> 
+		</node>
+		<!--
+
+		The second node
+
+		-->
+		<node>
+			<name>vizstack2</name>   <!-- Hostname of the node -->
+			<model>HP xw8600 Workstation</model>
+			<!-- 
+			A GPU of type "Quadro FX 5800" identified by BusID "96:0:0" on the PCI Bus.
+			index=0 represents that this is the first GPU on the system.
+			-->
+			<gpu>
+				<index>0</index>
+				<bus_id>PCI:96:0:0</bus_id>
+				<type>Quadro FX 5800</type>
+			</gpu>
+			<!-- 
+			A GPU of type "Quadro FX 5800" identified by BusID "128:0:0" on the PCI Bus.
+			index=1 represents that this is the second GPU on the system.
+			-->
+			<gpu>
+				<index>0</index>
+				<bus_id>PCI:128:0:0</bus_id>
+				<type>Quadro FX 5800</type>
+			</gpu>
+
+			<!-- Note: this node does not have keyboard/mice -->
+
+			<!-- A "normal" X Server :0 for RGS -->
+			<x_server><type>normal</type><range><from>0</from><to>0</to></range></x_server> 
+			<!-- A "virtual" X Server :1 for TurboVNC -->
+			<x_server><type>virtual</type><range><from>1</from><to>1</to></range></x_server> 
+			<!-- X Servers :2 to :10 for generic use. VizStack allocates X servers on a need basis from this pool -->
+			<x_server><type>normal</type><range><from>2</from><to>10</to></range></x_server> 
+		</node>
+
+		<!-- 
+	</nodes>
+
+	<!--
+
+	Scheduler information.
+
+	-->
+	<scheduler>
+		<type>slurm</type> <!-- Nodes are scheduled using SLURM -->
+	</scheduler>
+
+	<!--
+
+	Resource Groups. Currently, we support only Tiled Displays.
+
+	-->
+	<resourceGroup>
+		<name>tile2x1</name>
+		<handler>tiled_display</handler>
+		<!--
+		block_type = "gpu" means that GPU is the unit of arrangement. This is the only supported option now.
+		num_blocks = [1,1] means that there are 1*1 = 1 GPUs in this Tiled Display
+		block_display_layout = [2,1] means that the display outputs from the GPUs will be arranged as a 2x1 framebuffer
+		display_device = "LP2065" . LP2065 is a defined display device in /etc/vizstack/templates/displays/HP-LP2065.xml
+		display_mode = "1600x1200_60". Drive each display at 1600x1200_60.
+		tile_resolution = [1600,1200]. Resolution of each tile is 1600x1200. This will be derived intelligently from display_mode and display_device in later releases.
+
+		Overall, tile2x1 is a 2x1 arrangement of LP2065 monitors.
+		-->
+		<handler_params>block_type="gpu";num_blocks=[1,1];block_display_layout=[2,1];display_device="LP2065";display_mode="1600x1200_60";tile_resolution=[1600,1200];</handler_params>
+		<resources>
+			<reslist> 
+				<res><gpu><hostname>vizstack2</hostname><index>0</index></gpu></res> <!-- Use GPU#0 on vizstack2 to drive this-->
+				<res><serverconfig></serverconfig></res> <!-- Choose and assign an X server -->
+			</reslist>
+		</resources>
+	</resourceGroup>
+
+</systemconfig>

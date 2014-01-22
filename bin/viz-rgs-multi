@@ -1,0 +1,379 @@
+#!/usr/bin/env python
+
+# VizStack - A Framework to manage visualization resources
+
+# Copyright (C) 2009-2010 Hewlett-Packard
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+"""
+viz_rgs
+
+VizStack support for HP RGS. Starts RGS using GDM, with autologin.
+So the user gets his desktop directly.
+"""
+import vsapi
+from vsapi import ResourceAccess, Screen, GPU, Server, Keyboard, Mouse, VizResource, VizError
+from pprint import pprint
+from optparse import OptionParser, OptionGroup
+import sys
+import re
+import time
+import string
+import socket
+import os
+
+defaultResolution = [1280,1024]
+desktopResLimit = [ [512,8192], [384, 8192] ]
+
+def setupRGS(xServer, resolution=defaultResolution, gpu=None, kbd=None, mouse=None):
+	"""
+	Setup an X server to run RGS. 
+
+	If the passed X server is not setup with any screens, then this function will setup
+	a virtual framebuffer of the needed resolution on it.
+
+	GPU is optional and will be used only if the X server is not setup with screens already.
+
+	Keyboard, Mouse are optional. They are not needed if no interaction is desired with the
+	display. Note that these are _required_ for interactive use.
+	"""
+
+	# Setup the X server only if it has not been setup already.
+	allScreens = xServer.getScreens()
+	if len(allScreens)==0:
+		# Setup the X server with a virtual framebuffer
+		screen = Screen(0)
+		screen.setFBProperty('resolution', resolution)
+		screen.setGPU(gpu)
+		xServer.addScreen(screen)
+
+		# Setup a keyboard and mouse if passed. RGS works fine without them too!
+		if kbd is not None:
+			xServer.setKeyboard(kbd)
+		if mouse is not None:
+			xServer.setMouse(mouse)
+
+	# Add the required modules for RGS
+	xServer.addModule("rge") # core RGS module
+	xServer.addModule("extmod") # recommended for RGS GUI Icon
+
+def __parseArgs(arg_list):
+	parser = OptionParser(description=
+"""Starts an interactive remote desktop session using HP's Remote Graphics Software(RGS). Using this script lets you run more than one RGS session on a node.
+
+By default, a GPU is picked up automatically for you to use. You may also choose a GPU by passing one/more of the options described below.
+
+You may also choose to run a remote session on a Tiled Display which is driven from a single node. In this mode, users who see the Tiled Display can collaborate with remote users.
+""")
+	group = OptionGroup(parser, "Frequently used options")
+	group.add_option("-g", "--geometry", dest="desktop_resolution", help='The resolution to run the desktop at. This can be any "<width>x<height>" value, and doesn\'t need to match any display device resolution. Larger resolutions may result in higher network bandwidth usage, CPU utilization and sluggish performance')
+	group.add_option("-b", "--batch-mode", dest="batch_mode", action="store_true", default=False, help="Use this if you are running this script via a batch scheduler. This will direct the script to allocate resources on the machine where the script is running")
+	group.add_option("--gpu-type", dest="gpu_type", help="Allocate a specific type of GPU for this remote session. Note that the GPU type will have spaces in it, so you will need to quote the string. Examples are \"Quadro FX 5800\", \"Quadro FX 1500\", etc. Use the --show-gpu-types option to print out a list of GPU types that may be potentially available.")
+	parser.add_option_group(group)
+	group = OptionGroup(parser, "Additional options")
+	group.add_option("-t", "--tiled-display", dest="tiled_display_name", help="The tiled display to use for the RGS session. Note that only X screen #0 will be remoted. Also, not that you may only use tiled displays which use resources only from a single node.")
+	group.add_option("-m", "--display-mode", dest="display_mode", help="The resolution to run the displays in the tiled display.")
+	group.add_option("-a", "--allocate-from", dest="allocate_from", action="append", help="Allocate a GPU on this hostname. If you use this option multiple times, then a single GPU from one of the specified hosts will be used. Note that the allocation is independent of the order in which the hostnames are specified on the command line. This option cannot be used if -b is used.")
+	group.add_option("--show-gpu-types", dest="show_gpu_types", action="store_true", default=False, help="Prints out a list of GPU types that are potentially available for allocation")
+	parser.add_option_group(group)
+	(options, args) = parser.parse_args(sys.argv[1:])
+
+	# Extra arguments are errors.
+	if len(args)>0:
+		print >>sys.stderr # empty line
+		print >>sys.stderr, "Invalid argument(s) on command line : %s"%(string.join(args,","))
+		print >>sys.stderr # empty line
+		parser.print_help()
+		sys.exit(-1)
+
+	return (options, args)
+
+#
+# Script body starts from here. Note that you may import this module
+# and use setupRGS and startGDM as utility functions.
+#
+if __name__ == "__main__":
+	(options, args) = __parseArgs(sys.argv)
+
+	# If user does not specify any resolution, then we'll run at the script
+	# default resolution
+	useResolution = defaultResolution
+
+	# Validate and use any user specified resolution
+	if(options.desktop_resolution):
+		ob = re.match("([0-9]+)x([0-9]+)", options.desktop_resolution)
+		if ob is None:
+			print >>sys.stderr, "Invalid desktop resolution '%s'"%(options.desktop_resolution)
+			sys.exit(-1)
+		hRes = int(ob.group(1))
+		vRes = int(ob.group(2))
+		if hRes < desktopResLimit[0][0] or hRes > desktopResLimit[0][1]:
+			print >>sys.stderr, "Width of desktop must be in the range %s"%(desktopResLimit[0])
+			sys.exit(-1)
+		if vRes < desktopResLimit[1][0] or vRes > desktopResLimit[1][1]:
+			print >>sys.stderr, "Height of desktop must be in the range %s"%(desktopResLimit[1])
+			sys.exit(-1)
+
+		# use this resolution
+		useResolution = [hRes, vRes]
+
+	if (options.batch_mode == True) and (options.allocate_from is not None) and (len(options.allocate_from)>0):
+		print >>sys.stderr, "You are not allowed to use the options -b (batch mode) and -a (allocation node choice) together!"
+		sys.exit(-1)
+
+	if options.tiled_display_name is not None:
+		if(options.desktop_resolution):
+			print >>sys.stderr, "You are not allowed to specify both a tiled display and desktop resolution at the same time"
+			print >>sys.stderr, "Perhaps you need to use -m instead of -g ??"
+			sys.exit(-1)
+	else:
+		if options.display_mode is not None:
+			print >>sys.stderr, "You are allowed to specify a display mode only if you choose to use a tiled display (via the -t option)"
+			if options.desktop_resolution is None:
+				print >>sys.stderr, "If you want to set a specific desktop resolution, use -g"
+			sys.exit(-1)
+	# Connect to the SSM
+	try:
+		ra = ResourceAccess()
+	except VizError, e:
+		print >>sys.stderr, "%s"%(str(e))
+		sys.exit(-1)
+
+	# If we have a need to get the type of GPUs, then do so
+	if (options.show_gpu_types == True) or (options.gpu_type is not None):
+		gpuList = ra.queryResources(vsapi.GPU())
+		# Compute how many of which type are present
+		gpuTypeInfo = {}
+		for gpu in gpuList:
+		        gpuType = gpu.getType()
+		        try:
+		                gpuTypeInfo[gpuType] += 1
+		        except KeyError:
+		                gpuTypeInfo[gpuType] = 1
+
+		if options.show_gpu_types == True:
+			# If the user only asked us to print out GPU type information,
+			# then we print it out
+			for gpuType in gpuTypeInfo.keys():
+				# FIXME: should I print out information about how many are free at this instant ?
+			        print "GPU type '%s', total available in system = %d"%(gpuType, gpuTypeInfo[gpuType])
+			# Disconnect from the SSM
+			ra.stop()
+			# Exit with sucess
+			sys.exit(0)
+
+		if options.gpu_type is not None:
+			if not gpuTypeInfo.has_key(options.gpu_type):
+				print >>sys.stderr
+				print >>sys.stderr, "Invalid GPU type '%s' passed on the command line.\nA valid value is one of %s.\nNote that you need to quote the string when running this script from the shell."%(options.gpu_type, gpuTypeInfo.keys())
+				print >>sys.stderr
+				sys.exit(-1)
+
+	# Validate the host list if user asked for specific hosts
+	# This helps us print messages that make more sense for the
+	# user
+	if options.allocate_from is not None:
+		# Get a list of all hostnames from the SSM
+		nodeList = ra.queryResources(vsapi.VizNode())
+		validHostList = []
+		for node in nodeList:
+		        validHostList.append(node.getHostName())
+
+		# Find out what's not valid
+		invalidHostNames = filter(lambda x: x not in validHostList, options.allocate_from)
+
+		# And print them out
+		if len(invalidHostNames)>0:
+			print >>sys.stderr
+			print >>sys.stderr, "The following hostname(s) specified on the command line are invalid\n%s"%(invalidHostNames)
+			print >>sys.stderr
+			print >>sys.stderr, "Please ensure that they are indeed part of this system."
+			print >>sys.stderr
+			sys.exit(-1)
+		
+	# Validate any tiled displays passed to us.
+	if options.tiled_display_name is not None:
+		# Ensure that the Tiled Display is defined
+		try:
+			tdToUse = ra.queryResources(vsapi.ResourceGroup(options.tiled_display_name))[0]
+		except VizError, e:
+			print >>sys.stderr, "Invalid tiled display name '%s'. Reason: %s"%(options.tiled_display_name, str(e))
+			sys.exit(-1)
+
+		# Now ensure that the tiled display meets our requirements !
+		#
+		#    0. The resource group must be a tiled_display
+		#    1. Must have _exactly_ one reslist.
+		#    2. The reslist must have at least one real server [this is enusred by the SSM]
+		#    3. The reslist must have one keyboard
+		#    5. The reslist must atleast one GPU [this is ensure by the SSM]
+		#
+		if tdToUse.getType()!="tiled_display":
+			print >>sys.stderr, "You have passed a resource group with handler '%s'. I'm expecting a tiled_display"%(tdToUse.getType())
+			sys.exit(-1)
+		tdRes = tdToUse.getResources()
+		if len(tdRes)!=1:
+			print tdRes
+			print >>sys.stderr, "The passed tiled_display '%s' is not suitable for this script. It needs to define resources one node using exactly one 'reslist'. '%s' has %d reslists."%(options.tiled_display_name, options.tiled_display_name, len(tdRes))
+			sys.exit(-1)
+		kbd = vsapi.extractObjects(Keyboard, tdRes)
+		if len(kbd)!=1:
+			print >>sys.stderr, "Tiled display needs to use exactly one keyboard. You're using %d"%(len(kbd))
+			sys.exit(-1)
+
+	# Allocate resources needed for an RGS session
+	if options.tiled_display_name is not None:
+		alloc = ra.allocate([vsapi.ResourceGroup(options.tiled_display_name)])
+		res = alloc.getResources()
+		rg = res[0]
+		xServer = vsapi.extractObjects(Server, res)[0]
+		# The X server is already setup as said in the tiled display,
+		# so we don't need to do any additional setup for GPUs and 
+		# Keyboards
+		kbd = None
+		gpu = None
+		# If the user wants to use a different mode, then customize it now
+		if options.display_mode is not None:
+			rg = alloc.getResources()[0]
+			tdInUse = rg.getHandlerObject()
+			tdInUse.setParam('display_mode', options.display_mode)
+	else:
+		try:
+			# RGS needs an X server on :0
+			reqSrv = vsapi.Server()
+
+			# And a GPU
+			reqGPU = vsapi.GPU()
+			if options.gpu_type is not None:
+				reqGPU.setType(options.gpu_type)
+
+			if options.batch_mode:
+				# we'll allocate the node from where we were launched
+				reqSrv.setHostName(socket.gethostname())
+
+			if options.allocate_from is None:
+				potentialHostList = []
+			else:
+				potentialHostList = options.allocate_from
+
+			# Allocate the X server and a GPU
+			# If we are allocated via a batch mechanism, then the batch scheduler
+			# has to be configured in a way that it does not over-provision GPUs
+			# Misconfiguration can cause user scripts to fail.
+			alloc = ra.allocate([
+				  [ reqSrv, reqGPU, Keyboard() ]	
+				],
+				potentialHostList
+			)
+		except vsapi.VizError, e:
+			print >>sys.stderr, "Unable to allocate resources needed for a HP RGS desktop session."
+			print >>sys.stderr, "Reason: %s"%(str(e))
+			print >>sys.stderr
+			print >>sys.stderr, "Please try again later"
+			sys.exit(-1)
+
+		allocRes = alloc.getResources()
+		xServer = allocRes[0][0]
+		gpu = allocRes[0][1]
+		kbd = allocRes[0][2]
+
+	# Get information about the node where the X server is running
+	rgsNode = ra.queryResources(vsapi.VizNode(xServer.getHostName()))[0]
+	try:
+		externalName = rgsNode.getProperty('remote_hostname')
+	except KeyError, e:
+		print >>sys.stderr, "Failed to get the remote access hostname. Will use local hostname."
+		externalName = xServer.getHostName()
+		if externalName == "localhost": # Localhost needs to be expanded for single node case
+			externalName = socket.gethostname()
+
+	# Setup the X server with RGS enabled
+	setupRGS(xServer, useResolution, gpu, kbd)
+
+	# Propagate the X server settings to the SSM
+	try:
+		alloc.setupViz(ra)
+	except ValueError, e:
+		if options.tiled_display_name is not None:
+			# this can happen if the user specified a bad mode
+			print >>sys.stderr, "Failed to setup tiled display. Reason :%s"%(str(e))
+		else:
+			# I can't say what are the conditions for this problem to show up, 
+			# so I print out a generic error message
+			print >>sys.stderr, "Failed during setupViz. Reason : %s"%(str(e))
+
+		# Deallocate resources.
+		ra.deallocate(alloc)
+		# Disconnect from the SSM - we're done!
+		ra.stop()
+		sys.exit(-1)
+
+	if options.tiled_display_name is not None:
+		print "Starting Desktop on Tiled Display '%s'"%(options.tiled_display_name)
+	else:
+		print "Starting Desktop with resolution %dx%d"%(useResolution[0], useResolution[1])
+
+	# Start desktop with RGS enabled X server.
+	# Output & Error messages are redirected to /dev/null
+	sched = gpu.getSchedulable()
+	rgsProc = sched.run(["startx", "--", "/usr/X11R6/bin/vs-X", xServer.getDISPLAY()], outFile=open("/dev/null"), errFile=open("/dev/null"))
+
+	# Wait for the X server to come up
+	ra.waitXState(alloc, 1, vsapi.X_WAIT_TIMEOUT, [xServer])
+
+	if rgsProc is not None:
+		userConnectsTo = externalName + xServer.getDISPLAY()
+		print "==============================================================="
+		print "A desktop has been started for you at '%s' "%(userConnectsTo)
+		print "This session does not have collaboration support."
+		print ""
+		print "Please use the RGS client to connect, enter '%s' as the "%(userConnectsTo)
+		print "hostname, and press the 'Connect' button. You'll be asked for your"
+		print "username and password again."
+		print ""
+		print "Note that this is a persistent session. You will need to"
+		print "logout from the desktop session to free this resource."
+		print "==============================================================="
+
+		# Wait till the user logs out (detected by waiting on X server to disconnect)
+		# "None" for timeout results in an infinite wait.
+		try:
+			ra.waitXState(alloc, 0, None, [xServer])
+		except KeyboardInterrupt, e:
+			pass # follow through to kill stuff anyway
+		except vsapi.VizError, e:
+			print "Waiting for X: exception %s"%(str(e))
+			pass
+
+		# Kill RGS since the GDM will be still active and may try to 
+		# restart the X server
+		try:
+			rgsProc.kill()
+		except KeyboardInterrupt, e:
+			pass
+	else:
+		print >>sys.stderr, "==============================================================="
+		print >>sys.stderr, "ERROR: Failed to start RGS on host '%s'"%(xServer.getHostName())
+		print >>sys.stderr, "==============================================================="
+
+	# Stop the real X server - this is not needed actually
+	alloc.stopViz(ra)
+
+	# Deallocate resources. We do this quickly to prevent GDM from keeping running!
+	ra.deallocate(alloc)
+
+	# Disconnect from the SSM - we're done!
+	ra.stop()

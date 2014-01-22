@@ -1,0 +1,46 @@
+<?xml version="1.0" ?>
+
+<!--
+
+LP2065 is HP's standard 20 inch TFT monitor 
+
+The standard resolution of this device is 1600x1200 @ 60 Hz.
+
+-->
+
+<display
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/displayconfig.xsd" >
+	<model>HP LP2065</model>
+	<input>digital</input>
+	<edid>/opt/vizstack/share/templates/displays/edids/HP-LP2065.bin</edid>
+	<edid_name>HP LP2065</edid_name>
+	<dimensions>
+		<width>410</width> <!-- you get this from the "Maximum Image size" on the EDID -->
+		<height>310</height>
+		<bezel><!-- Quickspecs says overall size is 443 x 345 -->
+			<left>16.5</left> 
+			<right>16.5</right>
+			<bottom>17.5</bottom>
+			<top>17.5</top>
+		</bezel>
+	</dimensions>
+	<default_mode>1600x1200_60</default_mode>
+	<mode>
+		<type>edid</type>
+		<alias>1600x1200_60</alias>
+		<alias>1600x1200</alias> <!-- With 60 Hz default -->
+		<width>1600</width>
+		<height>1200</height>
+		<refresh>60</refresh>
+	</mode>
+	<mode>
+		<type>edid</type>
+		<alias>1280x1024_60</alias>
+		<alias>1280x1024</alias> <!-- 60 Hz is default -->
+		<width>1280</width>
+		<height>1024</height>
+		<refresh>60</refresh>
+	</mode>
+</display>

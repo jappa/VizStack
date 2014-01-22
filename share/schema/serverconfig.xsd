@@ -1,0 +1,182 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+targetNamespace="http://www.hp.com"
+xmlns="http://www.hp.com"
+elementFormDefault="qualified" >
+
+<xs:element name="server">
+	<xs:complexType>
+		<xs:sequence>
+			<!-- Multiple "owner"s can exist for this server. More than one owner implies sharing -->
+			<xs:element name="owner" minOccurs="0" maxOccurs="unbounded" type="xs:string" />
+
+			<!-- Maximum number of users this X server can be shared with -->
+			<xs:element name="maxShareCount" minOccurs="0" maxOccurs="1" type="xs:nonNegativeInteger" />
+
+			<!-- Is this server running shared or non shared ? -->
+			<xs:element name="shared" minOccurs="0" maxOccurs="1" type="xs:boolean" />
+
+			<!-- The hostname where the server is valid. -->
+			<xs:element name="hostname" minOccurs="0" maxOccurs="1" type="xs:string" />
+
+			<!-- A non-negative server number. -->
+			<xs:element name="server_number" minOccurs="0" maxOccurs="1" type="xs:nonNegativeInteger" />
+
+			<!-- Server Type -->
+			<xs:element name="server_type" >
+				<xs:simpleType>
+					<xs:restriction base="xs:string" >
+						<xs:enumeration value="normal" />
+						<xs:enumeration value="virtual" />
+					</xs:restriction>
+				</xs:simpleType>
+			</xs:element>
+
+			<!-- Command line options to the server specified first -->
+			<xs:element name="x_cmdline_arg" minOccurs="0" maxOccurs="unbounded">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="name" type="xs:string" />
+						<xs:element name="value" type="xs:string" />
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+
+			<!-- Any number of server modules may be specified -->
+			<xs:element name="x_module" minOccurs="0" maxOccurs="unbounded" type="xs:string" />
+
+			<!-- Items to add to the Section "Extensions" in xorg.conf -->
+			<xs:element name="x_extension_section_option" minOccurs="0" maxOccurs="unbounded" >
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="name" type="xs:string" />
+						<xs:element name="value" type="xs:string" />
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+
+			<!-- Any keyboard to use is specified next -->
+			<xs:element name="keyboard" minOccurs="0" maxOccurs="1">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="index" type="xs:nonNegativeInteger" />
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+
+			<!-- Any mouse to use is after the keyboard -->
+			<xs:element name="mouse" minOccurs="0" maxOccurs="1">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="index" type="xs:nonNegativeInteger" />
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+
+			<!-- One or more framebuffers are specified next -->
+			<xs:element name="framebuffer" minOccurs="0" maxOccurs="unbounded" > <!-- minOccurs=0 to accomodate serialization of empty X servers -->
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="index" type="xs:nonNegativeInteger" />
+						<xs:element name="properties" minOccurs="0" maxOccurs="1" >
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="x" type="xs:nonNegativeInteger" minOccurs="0" maxOccurs="1" /> <!-- x position of this framebuffer relative to other framebuffers -->
+									<xs:element name="y" type="xs:nonNegativeInteger" minOccurs="0" maxOccurs="1" /> <!-- y position of this framebuffer relative to other framebuffers -->
+									<xs:element name="width" type="xs:nonNegativeInteger" minOccurs="0" maxOccurs="1" />
+									<xs:element name="height" type="xs:nonNegativeInteger" minOccurs="0" maxOccurs="1" />
+									<xs:element name="bpp" type="xs:nonNegativeInteger" minOccurs="0" maxOccurs="1" />
+									<xs:element name="stereo" minOccurs="0" maxOccurs="1" >
+										<xs:simpleType>
+											<xs:restriction base="xs:string">
+												<xs:enumeration value="active" />
+												<xs:enumeration value="passive" />
+												<xs:enumeration value="SeeReal_stereo_dfp" />
+												<xs:enumeration value="Sharp3D_stereo_dfp" />
+												<xs:enumeration value="none" />
+											</xs:restriction>
+										</xs:simpleType>
+									</xs:element>
+									<xs:element name="rotate" minOccurs="0" maxOccurs="1" >
+										<xs:simpleType>
+											<xs:restriction base="xs:string">
+												<xs:enumeration value="none" /> <!-- no rotation -->
+												<xs:enumeration value="portrait" /> <!-- 90 degrees to left -->
+												<xs:enumeration value="inverted_portrait" /> <!-- 90 degrees to right -->
+												<xs:enumeration value="inverted_landscape" /> <!-- 180 degree -->
+											</xs:restriction>
+										</xs:simpleType>
+									</xs:element>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="gpu_combiner" minOccurs="0" maxOccurs="1" >
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="sli" >
+										<xs:complexType>
+											<xs:sequence>
+												<xs:element name="index" type="xs:integer" />
+												<xs:element name="mode" minOccurs="0" maxOccurs="1" >
+													<xs:simpleType>
+														<xs:restriction base="xs:string">
+															<xs:enumeration value="auto" />
+															<xs:enumeration value="SFR" /> <!-- Split Frame Rendering -->
+															<xs:enumeration value="AFR" /> <!-- Alternate Frame Rendering -->
+															<xs:enumeration value="AA" /> <!-- Anti Aliasing -->
+															<xs:enumeration value="mosaic" /> <!-- Anti Aliasing -->
+														</xs:restriction>
+													</xs:simpleType>
+												</xs:element>
+											</xs:sequence>
+										</xs:complexType>
+									</xs:element>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+						<xs:element name="gpu" minOccurs="1" maxOccurs="2" >
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="index" type="xs:integer" />
+									<xs:element name="scanout" minOccurs="0" maxOccurs="unbounded">
+										<xs:complexType>
+											<xs:sequence>
+												<xs:element name="port_index" type="xs:nonNegativeInteger" />
+												<xs:element name="type" minOccurs="0" maxOccurs="1" >
+													<xs:simpleType>
+														<xs:restriction base="xs:string">
+															<xs:enumeration value="digital" />
+															<xs:enumeration value="analog" />
+														</xs:restriction>
+													</xs:simpleType>
+												</xs:element>
+												<xs:element name="display_device" type="xs:string" />
+												<xs:element name="mode" type="xs:string" minOccurs="0" maxOccurs="1" />
+												<xs:element name="area" minOccurs="0" maxOccurs="1">
+													<xs:complexType>
+														<xs:sequence>
+															<xs:element name="x" type="xs:nonNegativeInteger" />
+															<xs:element name="y" type="xs:nonNegativeInteger" />
+															<xs:element name="width" type="xs:nonNegativeInteger" minOccurs="0" maxOccurs="1" />
+															<xs:element name="height" type="xs:nonNegativeInteger" minOccurs="0" maxOccurs="1" />
+														</xs:sequence>
+													</xs:complexType>
+												</xs:element>
+											</xs:sequence>
+										</xs:complexType>
+									</xs:element>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+
+			<!-- Whether to combine all framebuffers as one large framebuffer => Xinerama -->
+			<xs:element name="combine_framebuffers" minOccurs="0" maxOccurs="1" type="xs:boolean" />
+
+		</xs:sequence>
+	</xs:complexType>
+</xs:element>
+
+</xs:schema>

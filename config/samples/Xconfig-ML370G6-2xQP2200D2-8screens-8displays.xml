@@ -1,0 +1,140 @@
+<?xml version="1.0" ?>
+
+<!--
+
+An ML 370 with two QuadroPlex 2200 D2s connected to it. 
+All displays connected to LP 3065 monitors running at default resolution (2560x1600).
+
+8 X screens, 8 LP 3065s, 4 GPUs. 
+4x2 tiled display.
+Overall resolution (2560*4)x(1600*2) = 10240 x 3200
+
+NOTE: no keyboard and mouse are connected.
+
+-->
+<serverconfig 
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /etc/vizstack/schema/serverconfig.xsd" >
+	<framebuffer>
+		<index>0</index>
+		<properties>
+			<x>0</x>
+			<y>0</y>
+		</properties>
+		<gpu>
+			<index>0</index>
+			<scanout>
+				<port_index>0</port_index>
+				<type>DFP</type>
+				<display_device>LP3065</display_device>
+			</scanout>
+		</gpu>
+	</framebuffer>
+	<framebuffer>
+		<index>1</index>
+		<properties>
+			<x>2560</x>
+			<y>0</y>
+		</properties>
+		<gpu>
+			<index>0</index>
+			<scanout>
+				<port_index>1</port_index>
+				<type>DFP</type>
+				<display_device>LP3065</display_device>
+			</scanout>
+		</gpu>
+	</framebuffer>
+	<framebuffer>
+		<index>2</index>
+		<properties>
+			<x>5120</x>
+			<y>0</y>
+		</properties>
+		<gpu>
+			<index>1</index>
+			<scanout>
+				<port_index>0</port_index>
+				<type>DFP</type>
+				<display_device>LP3065</display_device>
+			</scanout>
+		</gpu>
+	</framebuffer>
+	<framebuffer>
+		<index>3</index>
+		<properties>
+			<x>7680</x>
+			<y>0</y>
+		</properties>
+		<gpu>
+			<index>1</index>
+			<scanout>
+				<port_index>1</port_index>
+				<type>DFP</type>
+				<display_device>LP3065</display_device>
+			</scanout>
+		</gpu>
+	</framebuffer>
+
+	<framebuffer>
+		<index>4</index>
+		<properties>
+			<x>0</x>
+			<y>1600</y>
+		</properties>
+		<gpu>
+			<index>2</index>
+			<scanout>
+				<port_index>0</port_index>
+				<type>DFP</type>
+				<display_device>LP3065</display_device>
+			</scanout>
+		</gpu>
+	</framebuffer>
+	<framebuffer>
+		<index>5</index>
+		<properties>
+			<x>2560</x>
+			<y>1600</y>
+		</properties>
+		<gpu>
+			<index>2</index>
+			<scanout>
+				<port_index>1</port_index>
+				<type>DFP</type>
+				<display_device>LP3065</display_device>
+			</scanout>
+		</gpu>
+	</framebuffer>
+	<framebuffer>
+		<index>6</index>
+		<properties>
+			<x>5120</x>
+			<y>1600</y>
+		</properties>
+		<gpu>
+			<index>3</index>
+			<scanout>
+				<port_index>0</port_index>
+				<type>DFP</type>
+				<display_device>LP3065</display_device>
+			</scanout>
+		</gpu>
+	</framebuffer>
+	<framebuffer>
+		<index>7</index>
+		<properties>
+			<x>7680</x>
+			<y>1600</y>
+		</properties>
+		<gpu>
+			<index>3</index>
+			<scanout>
+				<port_index>1</port_index>
+				<type>DFP</type>
+				<display_device>LP3065</display_device>
+			</scanout>
+		</gpu>
+	</framebuffer>
+</serverconfig>

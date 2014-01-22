@@ -1,0 +1,89 @@
+#!/bin/bash
+
+# VizStack - A Framework to manage visualization resources
+
+# Copyright (C) 2009-2010 Hewlett-Packard
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+#
+# /opt/vizstack/bin/start-x-server
+#
+# VizStack script to start a plain X server, while
+# ensuring that the user who started ths X server has
+# access to it without resorting to any use of the XAUTHORITY
+# environment variable.
+#
+# Expects a DISPLAY value to be passed as the first argument
+#
+# Script written by learning from 'startx' and usage of xinit
+#
+
+#
+# The X servers should not load the fake gl library, so remove
+# it from preload
+#
+echo ${LD_PRELOAD}|grep librrfaker > /dev/null
+if [ $? -eq 0 ] ; then
+    LD_PRELOAD_STATE=${LD_PRELOAD}
+    export LD_PRELOAD=`echo ${LD_PRELOAD}| sed -e 's/librrfaker.so//g;s/libdlfaker.so//g'`
+fi
+
+# First argument to this script must always be the display value.
+display=$1
+display=${display:-:0} # use :0 as default
+
+# Rest args will be the parameters
+shift
+otherargs=$@
+
+# set up default Xauth info for this machine
+case `uname` in
+Linux*)
+ if [ -z "`hostname --version 2>&1 | grep GNU`" ]; then
+  hostname=`hostname -f`
+ else
+  hostname=`hostname`
+ fi
+ ;;
+*)
+ hostname=`hostname`
+ ;;
+esac
+
+authdisplay=$display
+mcookie=`/usr/bin/mcookie` # generate a magic cookie for X
+dummy=0
+
+# create a file with auth information for the server.
+xserverauthfile=/tmp/.vizstack.serverauth.$$
+xauth -q -f $xserverauthfile << EOF
+add $display . $mcookie
+EOF
+
+# Set XAUTHORITY so the client can xinit can connect to the X server
+# Note that this overrides any XAUTHORITY set on the command line.
+XAUTHORITY=${xserverauthfile}
+export XAUTHORITY
+
+# Below command runs xinit
+# xinit in turn runs vs-X with the authfile we created above
+#
+xinit /opt/vizstack/bin/vs-wait-x -- /usr/X11R6/bin/vs-X $display -auth ${xserverauthfile} ${otherargs}
+
+# delete the server auth file
+# FIXME: we can move this to user-auth-add for great security - even
+# root will not be able to snoop into the user X server !
+rm -f ${serverauthfile}

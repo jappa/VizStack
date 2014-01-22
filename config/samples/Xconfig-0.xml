@@ -1,0 +1,26 @@
+<?xml version="1.0" ?>
+
+<serverconfig 
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /etc/vizstack/schema/serverconfig.xsd" >
+	<hostname>slestest3</hostname>
+	<server_number>0</server_number>
+	<server_type>normal</server_type>
+	<keyboard>
+		<index>0</index>
+	</keyboard>
+	<mouse>
+		<index>0</index>
+	</mouse>
+	<framebuffer>
+		<index>0</index>
+		<properties>
+			<width>1024</width>
+			<height>1024</height>
+		</properties>
+		<gpu>
+			<index>0</index>
+		</gpu>
+	</framebuffer>
+</serverconfig>

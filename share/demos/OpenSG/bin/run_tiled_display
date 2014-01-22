@@ -1,0 +1,196 @@
+#!/usr/bin/env python
+# VizStack - A Framework to manage visualization resources
+
+# Copyright (C) 2009-2010 Hewlett-Packard
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+"""
+run_tile_display
+
+Demo script to show how to run OpenSG applications on a 
+VizStack tiled display. The main steps here are :
+
+ 1. Run a ClusterServer on every X screen on the tiled display.
+    Need to ensure that the port numbers used by the Servers
+    dont clash with each other. This is ensured by computing the
+    server port number as a function of the X server number and
+    the screen number. The ClusterServer is slightly modified
+    from the base ClusterServer to enable rendering to happen
+    even if no window manager is running.
+
+ 2. Run a modified ClusterClient(called MyClient) on the node
+    from where the script is executed. This modified client doesn't
+    create any OpenGL windows. It automatically keeps spinning the
+    model. The ClusterClient uses OpenSG's MultiDisplayWindow to
+    to render into the tiled display.
+
+ 3. Once the client exits, kill the servers
+
+PS: This can be used to run the Sort Last algorithm on a tiled 
+display as well. This is useful for illustrative purposes.
+
+That's it !
+"""
+
+import vsapi
+from pprint import pprint
+import sys
+import os
+from pprint import pprint
+from optparse import OptionParser
+from copy import deepcopy
+import string
+import re
+
+# Setup the command line parser
+parser = OptionParser(
+usage="usage: %prog <-t tiled_display_name> [-i] [-m] [-z] [model_file]",
+description="""
+Displays an OpenSG compatbile model on a tiled display using OpenSG.
+
+The OpenSG program uses the MultiDisplayWindow class to render
+a specified 3D model on a tiled display.
+
+Optionally, this program can be used to demonstrate the Sort Last 
+algorithm on the tiled display. Use the "-z" switch for this.
+
+If the optional model_file is not specified, then a default model
+will be used. You may pass in all model file formats supported by
+OpenSG - e.g., .obj, .wrl. Note that the directory 
+/opt/vizstack/share/demos/OpenSG/data has a few files for ready 
+user.
+""")
+parser.add_option("-t", "--tiled-display", action="store", type="string", dest="tiled_display", help="The tiled display to use for the job.")
+parser.add_option("-i", "--interactive", action="store_true", default=False, dest="interactive", help="Interact with the rendered model via a GUI displayed on the local node. By default, the model will be shown spinning.")
+parser.add_option("-m", "--display-mode", dest="display_mode", help="The resolution to run the X server at.")
+parser.add_option("-z", "--sort-last", action="store_true", default=False, dest="sort_last", help="Run OpenSG's Sort Last Cluster Client. This helps demonstrate how parts of the model get assigned to various GPUs. Note that this is an always-interactive mode. A GUI showing the sort last combined result will show up on the local node.")
+
+# Parse & validate arguments
+(options, args) = parser.parse_args(sys.argv[1:])
+if options.tiled_display is None:
+	print >>sys.stderr, "You need to specify a tiled display"
+	parser.print_help()
+	sys.exit(-1)
+
+if len(args)==0:
+	if options.sort_last == False:
+		print "No file specified. I'll reward you with a torus.."
+	else:
+		print "No file specified. I'll reward you with a torus and a cylinder scene. This is not very useful if you're using more than 2 GPUs..."
+		
+	inputFile = ""
+else:
+	inputFile = "-f%s"%(args[0])
+
+# Connect to the SSM
+ra = vsapi.ResourceAccess()
+
+# Allocate the tiled display with the given name
+rg = vsapi.ResourceGroup(options.tiled_display)
+alloc = ra.allocate([rg])
+
+# Set up the X servers
+alloc.setupViz(ra)
+
+# Starts the X servers on the requested tiled display
+alloc.startViz(ra)
+
+# Extract information corresponing to the tiled display
+rg = alloc.getResources()[0]
+screenLayout = rg.getHandlerObject().getLayoutMatrix()
+(cols, rows) = rg.getHandlerObject().getLayoutDimensions() 
+#pprint(screenLayout)
+
+# Force Sync to vertical blanking by turning on this 
+# environment variable. This makes the animation look
+# smoother. Without this, the user may perceive some
+# tearing.
+syncToVBlank = ["/usr/bin/env", "__GL_SYNC_TO_VBLANK=1"]
+
+# Create a modified environment for the 
+# OpenSG servers to run. Currently, this ensures that
+# VirtualGL's librrfaker.so LD_PRELOAD does not affect
+# these
+safeEnv = vsapi.sanitisedEnv()
+
+# Create a mapping from the hostname to the fast network
+# we'll refer to the hostnames in the fast network, and
+# hope OpenSG does the rest
+allNodes = ra.queryResources(vsapi.VizNode())
+fastNetworkMap = {}
+for thisNode in allNodes:
+    fastNetworkMap[thisNode.getHostName()] = thisNode.getProperty('fast_network')
+
+# Run the OpenSG server programs on each tile
+binPrefix = '/opt/vizstack/share/demos/OpenSG/bin/'
+servers = []
+hosts = []
+num_tiles = [cols,rows]
+basePort = 30000
+for y in range(rows-1,-1,-1):
+	for x in range(cols):
+		hostIndex = y*num_tiles[1]+x
+		thisScreen = screenLayout[y][x]['screen']
+		srv = thisScreen.getServer()
+		# Choose a port number to avoid clash with other
+		# running programs. Tying the port number to X server number
+		# and screen number may give good results I think.
+		portNum =  basePort+srv.getIndex()*50+thisScreen.getScreenNumber()
+		hostName = srv.getHostName()
+		thisHost = '%s:%d'%(fastNetworkMap[hostName], portNum)
+		dims = thisScreen.getFBProperty('resolution')
+		hosts.append(thisHost)
+		cmd = syncToVBlank + ["%s/ClusterServer"%(binPrefix), "-geometry", "%dx%d+0+0"%(dims[0],dims[1]), "-w", "%s"%(thisHost) ]
+		#print cmd
+		# Start the server
+		servers.append(thisScreen.run(cmd,launcherEnv=safeEnv))
+
+# Choose the right client program.
+if options.sort_last == True:
+	cmd = "%s/SortLastClusterClient"%(binPrefix)
+else:
+	if options.interactive == True:
+		# Choose OpenSG's stock ClusterClient program. This opens a GLUT window, and
+		# lets the user use the mouse to interact with the model.
+		cmd = "%s/ClusterClient"%(binPrefix)
+	else:
+		# Choose our 'MyClient' program. This renders the model keeps it spinning.
+		cmd = "%s/MyClient"%(binPrefix)
+	cmd += " -x %d -y %d"%(num_tiles[0], num_tiles[1])
+
+# Assemble the remaining parts of the command
+cmd += " %s %s"%(string.join(hosts, " "), inputFile)
+
+# VirtualGL/TurboVNC support. If VGL_DISPLAY is set, then we're called from a TurboVNC desktop
+# with VirtualGL enabled. So we need to use "vglrun"
+if os.environ.has_key('VGL_DISPLAY'):
+	cmdPrefix = "/usr/bin/vglrun "
+else:
+	cmdPrefix = ""
+os.system("%s%s"%(cmdPrefix, cmd))
+
+# Terminate OpenSG servers if they are still running
+for srv in servers:
+	srv.kill()
+
+# Kill all the X servers
+alloc.stopViz(ra)
+
+# Give up all the resources
+ra.deallocate(alloc)
+
+# Done!
+ra.stop()

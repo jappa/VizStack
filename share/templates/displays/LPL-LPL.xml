@@ -1,0 +1,28 @@
+<?xml version="1.0" ?>
+
+<!--
+
+LPL is Shree's Laptop's (DV 2000 series) display
+
+According to the EDID, manufacturer is "LPL", and monitor name is "LPL" too !
+
+-->
+
+<display
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/displayconfig.xsd" >
+	<model>HP DV 2000 Laptop Display</model>
+	<input>digital</input>
+	<edid>/opt/vizstack/share/templates/displays/edids/LPL-LPL.bin</edid>
+	<edid_name>LPL</edid_name>
+	<default_mode>1280x800_60</default_mode>
+	<mode>
+		<type>edid</type>
+		<alias>1280x800_60</alias>
+		<alias>1280x800</alias>
+		<width>1280</width>
+		<height>800</height>
+		<refresh>60</refresh>
+	</mode>
+</display>

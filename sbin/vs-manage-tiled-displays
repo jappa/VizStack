@@ -1,0 +1,1042 @@
+#!/usr/bin/env python
+# VizStack - A Framework to manage visualization resources
+
+# Copyright (C) 2009-2010 Hewlett-Packard
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+"""
+vs-manage-tiled-displays
+
+Command line tool to display, create & delete tiled displays.
+
+This tool works irrespective of whether the SSM is running or
+not. This file edits /etc/vizstack/resource_group_config.xml.
+"""
+import sys
+sys.path.append('/opt/vizstack/python') # Add path of our python modules
+import vsapi
+import vsutil
+import readline # for nice line editing in raw_input
+from pprint import pprint
+from xml.dom import minidom
+import domutil
+import xml
+import os
+import socket
+import string
+
+def refresh_ssm_resource_groups():
+	"""
+	If the SSM is running, then we send it the refresh message &
+	report success/failure
+	"""
+	try:
+		ra = vsapi.ResourceAccess()
+	except vsapi.VizError, e:
+		return
+	
+	try:
+		print "Requesting SSM to refresh tiled display information..."
+		ra.refreshResourceGroups()
+		print "Done !"
+
+	except vsapi.VizError, e:
+		print >> sys.stderr, "SSM failed to refresh resource groups. Reason reported : %s"%(str(e))
+
+	try:
+		ra.close()
+	except:
+		pass
+
+def print_td(block_type, block_display_layout, num_blocks, group_blocks, gpuNames, xServerNames):
+
+	text = []
+	max_hname_len = 10
+	lines_per_block = 5
+	chars_per_block = max_hname_len+7 # max(max_hname_len, 17)
+	if group_blocks is not None:
+		doGroup = True
+		# Pad X server names with spaces to compensate undefined values
+		xServerNames = xServerNames + ([""]*((group_blocks[0]*group_blocks[1])-len(xServerNames)))
+	else:
+		doGroup = False
+	blockMapping = [0]*num_blocks[0]*num_blocks[1]
+
+	# Pad GPU names with spaces to compensate the undefined values
+	gpuNames = gpuNames + ([""]*((num_blocks[0]*num_blocks[1])-len(gpuNames)))
+
+	if doGroup:
+		ngx = num_blocks[0]/group_blocks[0]
+		ngy = num_blocks[1]/group_blocks[1]
+		displayGPUNames = [""]*len(gpuNames)
+		posInput = 0
+		# map GPU names to their right place in the matrix
+		# gpuNames will have values block by block, but we
+		# need to 
+		for y in range(ngy):
+			for x in range(ngx):
+				for r in range(group_blocks[1]):
+					for c in range(group_blocks[0]):
+						row = y*group_blocks[1]+r
+						col = x*group_blocks[0]+c
+						posOutput = row*num_blocks[0]+col
+						displayGPUNames[posOutput]=gpuNames[posInput]
+						blockMapping[posOutput]=posInput
+						posInput += 1
+	else:
+		displayGPUNames = gpuNames
+		for i in range(len(blockMapping)):
+			blockMapping[i]=i
+
+	# Put up the matrix of blocks
+	for y in range(num_blocks[1]):
+		
+		# Empty line
+		thisLine = ""
+		for x in range(num_blocks[0]):
+			thisLine += " "*(chars_per_block+5)
+		text.append(thisLine)
+
+		# Framing box
+		thisLine = ""
+		for x in range(num_blocks[0]):
+			thisLine += "   +"
+			thisLine += "-"*chars_per_block
+			thisLine += "+"
+		text.append(thisLine)
+		for i in range(lines_per_block-2):
+			thisLine = ""
+			for x in range(num_blocks[0]):
+				thisLine += "   |"
+				thisLine += " "*chars_per_block
+				thisLine += "|"
+			text.append(thisLine)
+		thisLine = ""
+		for x in range(num_blocks[0]):
+			thisLine += "   +"
+			thisLine += "-"*chars_per_block
+			thisLine += "+"
+		text.append(thisLine)
+
+	# Empty line
+	thisLine = ""
+	for x in range(num_blocks[0]):
+		thisLine += " "*(chars_per_block+5)
+	text.append(thisLine)
+
+	def show_xy(x1, y, msg):
+		lineToChange = text[y]
+		newContent = lineToChange[:x1]+msg+lineToChange[x1+len(msg):]
+		text[y] = newContent
+
+	def show_rect(rect_x, rect_y, lnum, msg):
+		stIndex = rect_x*(chars_per_block+5)+4
+		endIndex = stIndex + len(msg)
+		lineNum = rect_y*(lines_per_block+1)+lnum+2
+		show_xy(stIndex, lineNum, msg)
+
+	if block_type == "gpu":
+		blockStr = "GPU"
+	else:
+		blockStr = "QuadroPlex"
+
+	for j in range(num_blocks[1]):
+		for i in range(num_blocks[0]):
+			blockIndex = (j*num_blocks[0]) + i
+			show_rect(i, j ,0 , "%s %2d"%(blockStr, blockMapping[blockIndex]))
+			show_rect(i, j ,1 , displayGPUNames[blockIndex])
+#			# Show the block display layout
+#			if block_type=="gpu":
+#				if block_display_layout[0]==2:
+#					show_rect(i, j, 2, "0 | 1")
+#				elif block_display_layout[1]==2:
+#					show_rect(i, j, 2, "  0")
+#					show_rect(i, j, 3, "  1")
+#				else:
+#					show_rect(i, j, 2, "  0")
+#			if block_type=="quadroplex":
+#				if block_display_layout[0]==1:
+#					if block_display_layout[1]==2:
+#						show_rect(i, j, 2, "  0")
+#						show_rect(i, j, 3, "  2")
+#					elif block_display_layout[1]==3:
+#						show_rect(i, j, 2, "  0")
+#						show_rect(i, j, 3, "  1")
+#						show_rect(i, j, 4, "  2")
+#					elif block_display_layout[1]==4:
+#						show_rect(i, j, 2, "  0")
+#						show_rect(i, j, 3, "  1")
+#						show_rect(i, j, 4, "  2")
+#						show_rect(i, j, 5, "  3")
+#				elif block_display_layout[0]==2:
+#					if block_display_layout[1]==1:
+#						show_rect(i, j, 2, "  0 | 1")
+#					elif block_display_layout[1]==2:
+#						show_rect(i, j, 2, "  0 | 1")
+#						show_rect(i, j, 3, "  2 | 3")
+#				elif block_display_layout[0]==3:
+#					show_rect(i, j, 2, "  0 | 1 | 2")
+#				elif block_display_layout[0]==4:
+#					show_rect(i, j, 2, "  0 | 1 | 2 | 3")
+				
+	# Show the group part
+	if doGroup:
+		for j in range(ngy):
+			for i in range(ngx):
+				col1 = i*group_blocks[0]*(chars_per_block+5)
+				col2 = (i+1)*group_blocks[0]*(chars_per_block+5)
+				row1 = j*group_blocks[1]*(lines_per_block+1)
+				row2 = (j+1)*group_blocks[1]*(lines_per_block+1)
+				msg = " +^X#"
+				xNum = j*ngx+i
+				msg += "%2d"%(xNum)
+				if len(xServerNames[xNum])>0:
+					msg += " on "
+					msg += xServerNames[xNum]
+					msg += " "
+				msg += ("^"*(col2-col1-len(msg)))
+				msg += "+"
+				show_xy(col1, row1,msg)
+				for row in range(row1+1, row2):
+					show_xy(col1, row, " * ")
+					show_xy(col2, row, "* ")
+				msg = "+"
+				msg += ("^"*(col2-col1-len(msg)))
+				msg += "+"
+				show_xy(col1, row2,msg)
+
+	for line in text:
+		print line
+
+#print_td("gpu", [1,1], [2,1], [2,1], [
+#	"host1/0",
+#	"host2/0"],["host1"])
+#sys.exit(0)
+
+def show_menu(message, choices, default=None):
+	"""
+	Show a text menu of choices with a message.
+	"""
+	while True:
+		print
+		print message
+		print
+		for i in range(len(choices)):
+			print "%d. %s"%(i+1, choices[i][0])
+		print
+		if default is not None:
+			choice = raw_input("Enter your choice[1-%d] (default %d):"%(len(choices), (default+1)))
+		else:
+			choice = raw_input("Enter your choice[1-%d]:"%(len(choices)))
+
+		if choice != "" or (default is None):
+			if len(choice)==0:
+				print >>sys.stderr, "Empty choice is not allowed. Please enter a valid value."
+				continue
+			try:
+				option = int(choice)
+				if (option<1) or (option>((len(choices)))):
+					raise ValueError
+				option = option - 1
+			except ValueError,e:
+				print >>sys.stderr, "Invalid choice '%s'. Please enter a valid integer value"%(choice)
+				continue
+		else:
+			option = default
+		return choices[option][1]
+
+def get_integer(msg, min=None, max=None, validator=None, possibleValues=None):
+	while True:
+		print
+		if min is not None:
+			choiceMsg = "%s[%d-%d]:"%(msg,min,max)
+		else:
+			pvMsg = ""
+			for v in possibleValues:
+				pvMsg += "%d,"%(v)
+			pvMsg = pvMsg[:-1]
+			choiceMsg = "%s[%s]:"%(msg, pvMsg)
+		choice = raw_input(choiceMsg)
+		try:
+			option = int(choice)
+			if min is not None:
+				if (option<min) or (option>max):
+					raise ValueError
+			else:
+				if option not in possibleValues:
+					raise ValueError
+		except ValueError,e:
+			print >>sys.stderr, "Invalid choice '%s'. Please enter a valid value"%(choice)
+			continue
+		if validator is not None:
+			try:
+				validator(option)
+			except ValueError, e:
+				print >>sys.stderr, str(e)
+				continue
+		return option
+
+def get_bool(msg, default=None):
+	while True:
+		print
+		choice = raw_input("%s[y/n]:"%(msg))
+		if (len(choice)==0) and (default is not None):
+			return default
+		if (choice == 'y') or (choice == 'Y'):
+			return True
+		elif (choice == 'n') or (choice == 'N'):
+			return False
+		print >>sys.stderr, "Invalid choice '%s'. Please enter a valid value"%(choice)
+
+def get_string(msg, validator=None, allowEmpty=False):
+	while True:
+		print
+		value = raw_input("%s:"%(msg))
+		if (not allowEmpty) and (len(value) == 0):
+			print >>sys.stderr, "Empty strings not allowed. Please enter a valid value"
+		else:
+			if validator is not None:
+				try:
+					value = validator(value)
+				except ValueError, e:
+					print >>sys.stderr, "Invalid input : %s"%(str(e))
+					continue
+			break
+	return value
+
+def createResourceGroupFile():
+	try:
+		f = open("/etc/vizstack/resource_group_config.xml","w")
+	except IOError, e:
+		print >>sys.stderr, "Unable to create file /etc/vizstack/resource_group_config.xml. Reason: %s"%(str(e))
+		return False
+	print >>f, """<?xml version="1.0" ?>
+	<resourcegroupconfig
+	xmlns="http://www.hp.com"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/resourcegroupconfig.xsd" >
+
+	</resourcegroupconfig>
+	"""
+	f.close()
+	return True
+
+# Resource Group manipulation functions
+def loadResourceGroupFile():
+	try:
+		doc = minidom.parse("/etc/vizstack/resource_group_config.xml")
+	except xml.parsers.expat.ExpatError, e:
+		print >>sys.stderr, "Error parsing file /etc/vizstack/resource_group_config.xml: %s"%(str(e))
+		return None
+	return doc
+
+def deleteResourceGroup(doc, rgName):
+	root = doc.documentElement
+	resourceGroups = domutil.getChildNodes(root, "resourceGroup")
+	for rg in resourceGroups:
+		rgCompName = domutil.getValue(domutil.getChildNode(rg,"name"))
+		if rgName == rgCompName:
+			parentNode = rg.parentNode
+			parentNode.removeChild(rg)
+			return True
+	return False
+
+def addResourceGroup(doc, rg):
+	root = doc.documentElement
+	#doc2 = minidom.parseString(rg.serializeToXML()).documentElement
+	doc2 = minidom.parseString(rg).documentElement
+	root.appendChild(doc2)
+
+def saveResourceGroupFile(doc):
+	try:
+		f = open("/etc/vizstack/resource_group_config.xml","w")
+	except IOError, e:
+		print >>sys.stderr, "Unable to save file /etc/vizstack/resource_group_config.xml. Reason: %s"%(str(e))
+		return False
+	f.write(doc.toxml())
+	f.close()
+	return True
+
+# Some validation functions
+def gpuValidator(spec, validHostInfo):
+	csv = spec.split("/")
+	if len(csv)==1:
+		raise ValueError, "You need to enter a GPU index"
+	elif len(csv)==2:
+		try:
+			gpuIndex = int(csv[1])
+		except ValueError, e:
+			raise ValueError, "Invalid GPU index '%s'. Must be an integer"%(csv[1])
+		if (gpuIndex<0):
+			raise ValueError, "GPU index cannot be negative (%d)"%(gpuIndex)
+		hostName = csv[0].lstrip().rstrip()
+		if not validHostInfo.has_key(hostName):
+			raise ValueError, "Invalid hostname '%s'"%(hostName)
+		if gpuIndex not in validHostInfo[hostName]['gpu']:
+			raise ValueError, "Invalid GPU index %d for host %s. Valid GPU index must be one of %s"%(gpuIndex, hostName, validHostInfo[hostName]['gpu'])
+		return hostName+"/"+str(gpuIndex)
+	else:
+		raise ValueError, "Bad input. Input needs to be in the format 'hostname/gpuIndex'"
+
+def qpValidator(spec, validHostInfo):
+	csv = spec.split("/")
+	if len(csv)==1:
+		raise ValueError, "You need to enter two GPU indexes corresponding to the QuadroPlex"
+	elif len(csv)==2:
+		csvI = csv[1].split(",")
+		if len(csvI)!=2:
+			raise ValueError, "You need to enter two GPU indexes corresponding to the QuadroPlex"
+		try:
+			gpu0 = int(csvI[0])
+		except ValueError, e:
+			raise ValueError, "Invalid GPU index '%s'. Must be an integer."%(csvI[0])
+		try:
+			gpu1 = int(csvI[1])
+		except ValueError, e:
+			raise ValueError, "Invalid GPU index '%s'. Must be an integer."%(csvI[1])
+		hostName = csv[0].lstrip().rstrip()
+		if not validHostInfo.has_key(hostName):
+			raise ValueError, "Invalid hostname '%s'"%(hostName)
+		validQP = map(lambda x: str(x[1])+","+str(x[2]), validHostInfo[hostName]['quadroplex'])
+		searchSpec = str(gpu0)+","+str(gpu1)
+		if searchSpec not in validQP:
+			raise ValueError, "Invalid QuadroPlex specification '%s' for host %s. Valid values are of %s"%(spec, hostName, validQP)
+		return hostName+"/"+searchSpec
+	else:
+		raise ValueError, "Bad QuadroPlex specification. Input needs to be in the format 'hostname/gpu0,gpu1'"
+
+def create_tiled_display(localConfig):
+	"""
+	Creates a tiled display, after prompting user for input
+	"""
+	print
+	print "You will next to asked to enter the parameters for the"
+	print "tiled display"
+	print 
+
+	allResources = []
+	for nodeName in localConfig['nodes']:
+		allResources += localConfig['nodes'][nodeName].getResources()
+
+	# Get all hosts with atleast one GPU
+	allGPUs = vsapi.extractObjects(vsapi.GPU, allResources)
+	scanoutGPU = vsapi.GPU(useScanOut=True)
+	validGPUs = []
+	validGPUNames = []
+	validHostInfo = {}
+	gpuRef = {}
+	for gpu in allGPUs:
+		if gpu.typeSearchMatch(scanoutGPU):
+			gpuRef[gpu.hashKey()] = gpu
+			validGPUs.append(gpu)
+			validGPUNames.append("%s/%d"%(gpu.getHostName(), gpu.getIndex()))
+			if validHostInfo.has_key(gpu.getHostName()):
+				validHostInfo[gpu.getHostName()]['gpu'].append(gpu.getIndex())
+			else:
+				validHostInfo[gpu.getHostName()]={'gpu':[gpu.getIndex()], 'server': [], 'quadroplex': []}
+
+	# Extract the quadroplexes. QPs are detected by searching
+	# for the right type of SLI objects
+	allSLIs = vsapi.extractObjects(vsapi.SLI, allResources)
+	qpSLI = vsapi.SLI(sliType = "quadroplex")
+	validSLIs = []
+	has_quadroplex = False
+	for sli in allSLIs:
+		if sli.typeSearchMatch(qpSLI):
+			validHostInfo[sli.getHostName()]['quadroplex'].append([sli.getIndex(), sli.getGPUIndex(0), sli.getGPUIndex(1)])
+			has_quadroplex = True
+
+	# Take the servers in them
+	allServers = vsapi.extractObjects(vsapi.Server, allResources)
+	normalServer = vsapi.Server()
+	for srv in allServers:
+		if srv.typeSearchMatch(normalServer):
+			if validHostInfo.has_key(srv.getHostName()):
+				validHostInfo[srv.getHostName()]['server'].append(srv.getIndex())
+
+	#pprint(validHostInfo)
+
+	def tdValidator(name):
+		name = name.lstrip().rstrip()
+		if localConfig['resource_groups'].has_key(name):
+			raise ValueError("Error: Tiled display with name '%s' already exits. Please use another name."%(name))
+		return name
+			
+	tdName = get_string("Enter a name for the tiled display", tdValidator)
+	tdDesc = get_string("Enter a description for this tiled display. Users will see this\ninformation, so enter something that gives useful information\nabout the tiled display")
+
+	ddInfo = []
+	for ddName in localConfig['templates']['display']:
+		ddInfo.append([ddName, ddName])
+		
+	display_device = show_menu("Choose the display device you want to use on all displays", ddInfo)
+
+	modeInfo = []
+	ddTemplate = localConfig['templates']['display'][display_device]
+	modeInfo = []
+	defaultMode = ddTemplate.getDefaultMode()
+	for mode in ddTemplate.getAllModes():
+		modeInfo.append([mode['alias'], mode['alias']])
+		if mode['alias']==defaultMode['alias']:
+			defaultIndex = len(modeInfo)-1
+
+	if len(modeInfo)>1:
+		display_mode = show_menu("Choose the display mode you want to use on all displays", modeInfo, defaultIndex)
+	else:
+		display_mode = defaultMode['alias']
+		print "Display device %s has only one mode defined, '%s'. Using it."%(display_device, display_mode)
+
+	stereo_opts = []
+	stereo_opts.append([ "No Stereo", None ])
+	stereo_opts.append([ "Active Stereo using Shutter Glasses", "active" ])
+	stereo_opts.append([ "Passive Stereo", "passive" ])
+	stereo_opts.append([ "Auto-Stereoscopic SeeReal DFP (suitable for Tridelity SV displays)", "SeeReal_stereo_dfp" ])
+	stereo_opts.append([ "Auto-Stereoscopic Sharp DFP", "Sharp3D_stereo_dfp" ])
+	stereo_mode = show_menu("Choose the stereo mode you want to use", stereo_opts, 0)
+
+	if stereo_mode == "passive":
+		block_type = "gpu"
+		print "Passive Stereo is compatible only with GPU blocks, so assuming GPU blocks"
+	else:
+		if has_quadroplex == True:
+			block_type = show_menu("What type of block do you want to use ?", [ ["GPU block","gpu"], ["QuadroPlex block (uses SLI Mosaic Mode)","quadroplex"] ], 0)
+		else:
+			print "Assuming GPU blocks, since you do not have QuadroPlex in your configuration"
+			block_type = "gpu"
+
+	if block_type == "gpu":
+		display_rotation = show_menu("Have you rotated your displays physically ?",
+		                 [
+		                   ["No", None],
+		                   ["Yes, my displays are rotated 90 degress to the left  [Portait           ]", "portrait"],
+		                   ["Yes, my displays are rotated 90 degrees to the right [Inverted Portrait ]", "inverted_portrait"],
+		                   ["Yes, my displays are rotated 180 degrees             [Inverted Landscape]", "inverted_landscape"]], 0)
+	else:
+		print "Display rotation cannot be done with SLI mosaic mode; so assuming your displays are not rotated."
+		display_rotation = None
+
+	if block_type == "gpu":
+		blockStr = "GPU"
+		if stereo_mode != "passive":
+			block_display_layout = show_menu("How many displays do you want to drive per GPU?",
+					     [
+					      [ "Single Display                   (1x1)", [1,1] ],
+					      [ "Two Displays side by side        (2x1)", [2,1] ],
+					      [ "Two Displays one below the other (1x2)", [1,2] ]
+					     ])
+		else:
+			block_display_layout = [1,1]
+			print "Display layout for all GPU blocks is set to 1x1."
+	else:
+		blockStr = "QuadroPlex"
+		block_display_layout = show_menu("How many displays do you want to drive per QuadroPlex?", 
+		                     [
+		                      [ "Two Displays side by side          (2x1)", [2,1] ], 
+		                      [ "Two Displays one below the other   (1x2)", [1,2] ],
+		                      [ "Three displays side by side        (3x1)", [3,1] ],
+		                      [ "Three displays one below the other (1x3)", [1,3] ], 
+		                      [ "Four displays side by side         (4x1)", [4,1] ],
+		                      [ "Four displays one below the other  (1x4)", [1,4] ],
+		                      [ "Four displays as a 2x2 square      (2x2)", [2,2] ],
+		                     ])
+
+
+	w = get_integer("Enter the width of the tiled display in %ss"%(blockStr),1,10)
+	h = get_integer("Enter the height of the tiled display in %ss"%(blockStr),1,10)
+	num_blocks = [w,h]
+	group_blocks = None
+	doGroup = False
+
+	# QuadroPlex blocks have one X server per block. This restriction comes from SLI mosaic
+	# mode. Any SLI mode lets only one screen work !
+	if (w*h>1) and (block_type=="gpu"):
+		gbOpts = []
+		gbOpts.append(["One GPU.", None])
+		if(w%2)==0:
+			gbOpts.append(["Two GPUs, arranged side by side           [2x1]", [2,1]])
+		if(h%2)==0:
+			gbOpts.append(["Two GPUs, arranged one below the other    [1x2]", [1,2]])
+		if(w%3)==0:
+			gbOpts.append(["Three GPUs, arranged side by side         [3x1]", [3,1]])
+		if(h%3)==0:
+			gbOpts.append(["Three GPUs, arranged one below the other  [1x3]", [1,3]])
+		if((w%2)==0) and ((h%2)==0):
+			gbOpts.append(["Four GPUs, arranged in a square           [2x2]", [2,2]])
+		if(w%4)==0:
+			gbOpts.append(["Four GPUs, arranged side by side          [4x1]", [4,1]])
+		if(h%4)==0:
+			gbOpts.append(["Four GPUs, arranged one below the other   [1x4]", [1,4]])
+		if((w%3)==0) and ((h%2)==0):
+			gbOpts.append(["Six GPUs, arranged in a 3x2 configuration [3x2]", [3,2]])
+		if((w%2)==0) and ((h%3)==0):
+			gbOpts.append(["Six GPUs, arranged in a 2x3 configuration [2x3]", [2,3]])
+
+		group_blocks = show_menu("An X server may not span multiple nodes. How many GPUs do you want per X server?", gbOpts)
+
+		if group_blocks is not None:
+			doGroup = True
+
+	usedBlock = []
+	useXinerama = False
+
+	print "The layout of blocks for your tiled display is shown below:"
+	print
+	print_td(block_type, block_display_layout, num_blocks, group_blocks, [], [])
+
+	usedServers = []
+	resources = []
+	if not doGroup:
+		for y in range(h):
+			for x in range(w):
+				def dupCheck(x):
+					# Check if this block has been used already
+					if x in usedBlock:
+						raise ValueError, "%s has been used in this Tiled Display before. You need to enter another value."%(x)
+					return x
+				if block_type=="gpu":
+					thisGPU = get_string("Enter GPU to use for Block %d (format:hostname/index)"%(y*w+x), lambda x: dupCheck(gpuValidator(x, validHostInfo)))
+					usedBlock.append(thisGPU)
+					(host,gpuIndex)=thisGPU.split("/")
+					srv = vsapi.Server(hostName=host)
+					gpu = vsapi.GPU(hostName=host, resIndex=int(gpuIndex))
+					resources.append([srv,gpu])
+				elif block_type=="quadroplex":
+					thisQP = get_string("Enter QuadroPlex to use for Block %d (format:hostname/gpu0,gpu1)"%(y*w+x), lambda x: dupCheck(qpValidator(x, validHostInfo)))
+					usedBlock.append(thisQP)
+					(host,gpuSpec)=thisQP.split("/")
+					(gpu0, gpu1)=gpuSpec.split(",")
+					srv = vsapi.Server(hostName=host)
+					gpu0 = int(gpu0)
+					gpu1 = int(gpu1)
+					firstGPU = vsapi.GPU(hostName=host, resIndex=gpu0)
+					secondGPU = vsapi.GPU(hostName=host, resIndex=gpu1)
+					# Find the SLI bridge
+					sli = None
+					for candidateQP in validHostInfo[host]['quadroplex']:
+						if (gpu0 == candidateQP[1]) and (gpu1 == candidateQP[2]):
+							sli = vsapi.SLI(resIndex = candidateQP[0], hostName=host)
+							break
+					resources.append([srv,sli,firstGPU, secondGPU])
+				else:
+					raise vsapi.VizError(vsapi.VizError.INTERNAL_ERROR, "Bad block_type. This shouldn't happen")
+					
+	else:
+		gbw = group_blocks[0]
+		gbh = group_blocks[1]
+
+		useXinerama = get_bool("Do you want to enable Xinerama on the X servers?", False)
+		col_blocks = w/gbw
+		row_blocks = h/gbh
+		for y in range(row_blocks):
+			for x in range(col_blocks):
+				def hostValidator(v):
+					if not validHostInfo.has_key(v):
+						raise ValueError, "%s is not a valid hostname"%(v)
+					return v
+				groupIndex = y*col_blocks+x
+				blockhost = get_string("Enter hostname for X server %d"%(groupIndex), hostValidator)
+				def gpuIndexValidator(idx):
+					if idx not in validHostInfo[blockhost]['gpu']:
+						raise ValueError, "Invalid GPU index %d for host %s. Valid value is one of %s"%(idx, blockhost, validHostInfo[blockhost]['gpu'])
+					return idx
+
+				def dupCheck2(idx):
+					# Check if this GPU has been used already
+					if (blockhost+"/"+str(idx)) in usedBlock:
+						raise ValueError, "GPU %s/%s has been used in this Tiled Display before. You need to enter another value."%(blockhost,idx)
+					return idx
+
+				usedServers.append(blockhost)
+				srv = vsapi.Server(hostName=blockhost)
+				subRes = [srv]
+				for i in range(gbh):
+					for j in range(gbw):
+						gpuIndex = get_integer("Enter GPU index for X server %d on host %s, block %d"%(groupIndex, blockhost, i*gbh+j),validator=lambda x: dupCheck2(gpuIndexValidator(x)), possibleValues=validHostInfo[blockhost]['gpu'])
+						usedBlock.append(blockhost + "/" + str(gpuIndex))
+						gpu = vsapi.GPU(hostName=blockhost, resIndex=gpuIndex)
+						subRes.append(gpu)
+				resources.append(subRes)
+
+	# Ask for keyboard & mouse if there is only one X server
+	tdServers = vsapi.extractObjects(vsapi.Server, resources)
+	if len(tdServers)==1:
+		thisServer = tdServers[0]
+		searchKbd = vsapi.Keyboard(hostName=thisServer.getHostName())
+		searchMouse = vsapi.Mouse(hostName=thisServer.getHostName())
+		kbdsOnThisHost = filter(lambda x: x.typeSearchMatch(searchKbd), vsapi.extractObjects(vsapi.Keyboard, allResources))
+		miceOnThisHost = filter(lambda x: x.typeSearchMatch(searchMouse), vsapi.extractObjects(vsapi.Mouse, allResources))
+
+		if len(kbdsOnThisHost)>0 and len(miceOnThisHost)>0:
+			useInput = get_bool("Do you want to define a keyboard & mouse for this tiled display?")
+			if useInput:
+				if len(kbdsOnThisHost)==1:
+					kbdToUse = kbdsOnThisHost[0]
+					print "Using the only available keyboard on the system..."
+				else:
+					kbChoices = []
+					for kbd in kbdsOnThisHost:
+						addr = kbd.getPhysAddr()
+						if addr is None:
+							kbChoices.append(["%s index %d"%(kbd.getType(), kbd.getIndex()), kbd.getIndex()])
+						else:
+							kbChoices.append(["%s index %d, at Physical Address %s"%(kbd.getType(), kbd.getIndex(), addr), kbd.getIndex()])
+					kbdIndex = show_menu("Enter the keyboard to use", kbChoices)
+					kbdToUse = vsapi.Keyboard(resIndex=kbdIndex, hostName=thisServer.getHostName())
+				if len(miceOnThisHost)==1:
+					mouseToUse = miceOnThisHost[0]
+					print "Using the only available mouse on the system..."
+				else:
+					mouseChoices = []
+					for mouse in miceOnThisHost:
+						addr = mouse.getPhysAddr()
+						if addr is None:
+							mouseChoices.append(["%s index %d"%(mouse.getType(), mouse.getIndex()), mouse.getIndex()])
+						else:
+							mouseChoices.append(["%s index %d, ad Physical Address %s"%(mouse.getType(), mouse.getIndex(), addr), mouse.getIndex()])
+					mouseIndex = show_menu("Enter the mouse to use", mouseChoices)
+					mouseToUse = vsapi.Mouse(resIndex=mouseIndex, hostName=thisServer.getHostName())
+				
+				resources[0].append(kbdToUse)
+				resources[0].append(mouseToUse)
+
+	print
+	print "VizStack typically configures GPUs as follows:"
+	print "  - If each GPU drives one display, then display output 0 is used"
+	print "  - If each GPU drives two displays, then display outputs 0 and 1 are used"
+	print
+	print "You may have a need to connect displays on some other port. Examples:"
+	print " - You may have a DisplayPort cable and may want to connect it directly to an FX5800."
+	print "   The DisplayPort output is display output 2, so you need to tell VizStack to"
+	print "   use that. In this case, you are remapping display 0 to 2. The remap value you need"
+	print "   to use would be 2 in this case"
+	print " - You have connected port 0 of an FX5800 to a KVM. Port 1 and port 2 are connected to"
+	print "   your actual display devices. In this case, you are remapping 0 to 1, and 1 to 2. The"
+	print "   remap value to use would be 1,2 in this cae"
+	print " - You have a GPU like a QuadroNVS 420. If you have a DVI dongle, then you do not need"
+	print "   to use a remap value. If you have a DisplayPort dongle, then you need to use a remap"
+	print "   value of 2 if you are using a single display, or 2,3 if you are using both displays"
+	print "   per GPU."
+	print
+
+	remap_display_outputs = None
+	usedGPUs = map(lambda x: gpuRef[x.hashKey()], vsapi.extractObjects(vsapi.GPU, resources))
+	# NOTE: Max is min ! Same remapping value is applied to all GPUs, so we need to enforce this!
+	maxScanout = min(map(lambda x: len(x.getScanoutCaps()), usedGPUs))-1
+	numInputs = block_display_layout[0]*block_display_layout[1]
+	if block_type != "gpu":
+		if numInputs>2:
+			numInputs = 2
+	labels = ["n","m","o","p","q"]
+	labelStr = string.join(map(lambda x: labels[x], range(numInputs)),",")
+
+	while 1:
+		remap_do = get_string("Enter a value for remap_display_outputs, in the format '%s'.\nEnter empty input if you don't need remapping"%(labelStr), allowEmpty=True)
+		remap_do = remap_do.lstrip().rstrip()
+		if len(remap_do)==0:
+			break
+		remaps = remap_do.split(",")
+		if len(remaps)!=numInputs:
+			print "Invalid input. Must be in the format '%s'"%(labelStr)
+			continue
+		remap_value = []
+		try:
+			for rmpv in remaps:
+				try:
+					val = int(rmpv)
+				except ValueError, e:
+					raise ValueError, "Invalid input '%s'. Expecting integer"%(rmpv)
+				if (val<0) or (val>maxScanout):
+					raise ValueError, "Invalid input '%s'. Expecting integer in range [0,%d]"%(rmpv,maxScanout)
+
+				isDuplicate = False
+				try:
+					remap_value.index(val)
+					isDuplicate = True
+				except ValueError:
+					remap_value.append(val)
+				if isDuplicate:
+					raise ValueError, "Value '%s' has been repeated. All values in the remap list must be unique."%(val)
+				
+		except ValueError, e:
+			print str(e)
+			continue
+
+		remap_display_outputs = "["+string.join(map(lambda x:str(x), remap_value), ",")+"]"
+		break
+
+	print
+	print "VizStack can setup display synchronization on tiled display's using Framelock."
+	print "Enabling framelock can help you get tear-free images on tiled displays and"
+	print "display walls."
+	print
+	print "To enable framelock on a tiled display, you need to have every graphics card "
+	print "connected to a G-Sync card, and the G-sync cards need to be 'chained' together."
+	print "G-sync cards are built into quadroplexes; however, you still need to wire the"
+	print "cards together."
+	print
+	print "If you have setup this tiled display for framelock, then you may choose to"
+	print "answer 'yes' below. Note that scripts that work with tiled displays may fail"
+	print "if framelock cannot be enabled."
+	framelock = get_bool("Do you want to enable framelock on this tiled display?(default n)", False)
+
+	tdText = ""
+	for resList in resources:
+		tdText += "\t\t<reslist>\n"
+		for item in resList:
+			tdText += "\t\t\t<res>%s</res>\n"%(item.serializeToXML(addrOnly=True))
+		tdText += "\t\t</reslist>\n"
+
+	handler_params = "\t\tblock_type='%s';\n"%(block_type)
+	handler_params += "\t\tnum_blocks=[%d,%d];\n"%(w,h)
+	handler_params += "\t\tblock_display_layout=%s;\n"%(block_display_layout)
+	if doGroup:
+		handler_params += "\t\tgroup_blocks=%s;\n"%(group_blocks)
+	if display_rotation is not None:
+		handler_params += "\t\trotate='%s';\n"%(display_rotation)
+	if useXinerama == True:
+		handler_params += "\t\tcombine_displays=True;\n"
+	handler_params += "\t\tdisplay_device='%s';\n"%(display_device)
+	handler_params += "\t\tdisplay_mode='%s';\n"%(display_mode)
+	if remap_display_outputs is not None:
+		handler_params += "\t\tremap_display_outputs=%s;\n"%(remap_display_outputs)
+	if stereo_mode:
+		handler_params += "\t\tstereo_mode='%s';\n"%(stereo_mode)
+	handler_params += "\t\tframelock=%s;\n"%(framelock)
+	
+	tdText ="""
+<resourceGroup>
+\t<name>%s</name>
+\t<handler>tiled_display</handler>
+\t<description>%s</description>
+\t<handler_params>
+%s
+\t</handler_params>
+\t<resources>
+%s
+\t</resources>
+</resourceGroup>
+"""%(tdName, tdDesc, handler_params, tdText)
+
+	newRG = vsapi.ResourceGroup(tdName, 'tiled_display', handler_params, resources)
+	display_td_info(newRG, localConfig)
+
+	doc = loadResourceGroupFile()
+	if doc is None:
+		return
+
+	addResourceGroup(doc, tdText)
+	#print doc.toxml()
+	if saveResourceGroupFile(doc)==True:
+		print "\nSuccessfully created Tiled Display '%s'\n"%(tdName)
+	else:
+		print "Failed to create Tiled Display '%s'\n"%(tdName)
+	print 
+
+	# Make the modification effective on the SSM
+	refresh_ssm_resource_groups()
+
+	raw_input("Press Enter to continue...\n")
+
+def delete_tiled_display(localConfig):
+	tdInfo = []
+	for tdName in localConfig['resource_groups']:
+		tdInfo.append([tdName, tdName])
+	tdToDelete = show_menu("Which Tiled Display do you want to delete ?", tdInfo)
+	doc = loadResourceGroupFile()
+	if doc is None:
+		return
+
+	deleteResourceGroup(doc, tdToDelete)
+	#print doc.toxml()
+	if saveResourceGroupFile(doc)==True:
+		print "\nSuccessfully deleted Tiled Display '%s'\n"%(tdToDelete)
+	else:
+		print "Failed to delete Tiled Display '%s'\n"%(tdToDelete)
+
+	# Make the modification effective on the SSM
+	refresh_ssm_resource_groups()
+
+
+def list_tiled_displays(localConfig):
+	print 
+	print "The following Tiled Displays are defined in this system"
+	i=1
+	for tdName in localConfig['resource_groups']:
+		print "  %3d. %s"%(i,tdName)
+		i+=1
+	print 
+	raw_input("Press Enter to continue...\n")
+
+def display_td_info(rg, localConfig):
+	msg = "The Tiled Display '%s' is configured as follows"%(rg.getName())
+	header = "="*len(msg)
+	print header
+	print msg
+	print header
+
+	td = rg.getHandlerObject()
+	num_blocks = td.getParam('num_blocks')
+	block_display_layout = td.getParam('block_display_layout')
+	block_type = td.getParam('block_type')
+	group_blocks = td.getParam('group_blocks')
+	reslist = rg.getResources()
+
+	allResources = []
+	for nodeName in localConfig['nodes']:
+		allResources += localConfig['nodes'][nodeName].getResources()
+
+	blockNames = []
+	if block_type=="gpu":
+		for gpu in vsapi.extractObjects(vsapi.GPU, reslist):
+			blockNames.append(gpu.getHostName()+"/"+str(gpu.getIndex()))
+	else:
+		for sli in vsapi.extractObjects(vsapi.SLI, reslist):
+			matchSLI = None
+			for res in vsapi.extractObjects(vsapi.SLI, allResources):
+				if res.typeSearchMatch(sli):
+					matchSLI = res
+					break
+			if matchSLI is None:
+				print >>sys.stderr, "CONFIGURATION ERROR:"
+				print >>sys.stderr
+				print >>sys.stderr, "Did not find QuadroPlex SLI index %d on hostname %s"%(sli.getIndex(), sli.getHostName())
+				print >>sys.stderr, "Cannot continue."
+				print >>sys.stderr
+				return
+			blockNames.append(matchSLI.getHostName()+"/"+str(matchSLI.getGPUIndex(0))+","+str(matchSLI.getGPUIndex(1)))
+	serverNames = []
+	if group_blocks is not None:
+		for srv in vsapi.extractObjects(vsapi.Server, reslist):
+			srvName = srv.getHostName()
+			if srv.getIndex()!=None:
+				srvName += ":%d"%(srv.getIndex())
+			serverNames.append(srvName)
+	display_device = td.getParam('display_device')
+	display_mode = td.getParam('display_mode')
+	stereo_mode = td.getParam('stereo_mode')
+	framelock = td.getParam('framelock')
+	remap_display_outputs = td.getParam('remap_display_outputs')
+	if stereo_mode is not None:
+		stereo_mode = vsapi.Screen.stereoModes[stereo_mode]
+	rotate = td.getParam('rotate')
+	if rotate is not None:
+		rotate = vsapi.Screen.rotationModes[rotate]
+	if block_type=="gpu":
+		blockStr="GPU"
+	else:
+		blockStr="QuadroPlex"
+	print "Block Type                   : %s"%(blockStr)
+	print "Display Layout of all Blocks : %s"%(block_display_layout)
+	print "Display Device for all Tiles : %s"%(display_device)
+	print "Display Mode                 : %s"%(display_mode)
+	print "Stereo                       : %s"%(stereo_mode)
+	print "Display Rotation             : %s"%(rotate)
+	print "Display Remapping            : %s"%(remap_display_outputs)
+	print "Framelock                    : %s"%(framelock)
+	print
+	print_td(block_type, block_display_layout, num_blocks, group_blocks, blockNames, serverNames)
+	print
+
+def show_td_info(localConfig):
+	tdInfo = []
+	for tdName in localConfig['resource_groups']:
+		tdInfo.append([tdName, tdName])
+	tdToShow = show_menu("Select the Tiled Display you want to see the details of", tdInfo)
+	rg = localConfig['resource_groups'][tdToShow]
+	display_td_info(rg, localConfig)
+	raw_input("Press Enter to continue...\n")
+
+def main_menu():
+	options = []
+	# If not root user, then hide some of the information
+	if os.getuid()==0:
+		options.append([ "Define a new tiled display", 1])
+		options.append([ "Delete a tiled display", 2])
+	options.append([ "List tiled displays", 3])
+	options.append([ "Show information about a tiled display", 4])
+	options.append([ "Exit", 5])
+	return show_menu("What do you want to do?", options)
+
+# Script execution begins here
+
+# Configuration params
+configHost, configPort, authType = vsapi.getMasterParameters()
+
+if configHost != "localhost":
+	# check that we are running on the configured host here !
+	if socket.gethostname()!=configHost:
+		print >>sys.stderr, "vs-manage-tiled-displays can only be run on host '%s', but you are trying to run it on this machine, i.e. '%s'."%(configHost, socket.gethostname())
+		print >>sys.stderr, " If this is a multihomed machine, then you need to alter your configuration. "
+		sys.exit(1)
+
+reloadConfig = True
+if os.getuid()!=0:
+	print
+	print "NOTE: You are not running as root. You won't be able to create new tiled"
+	print "displays. You will not be able to delete tiled displays either."
+	print
+
+# Main menu loop
+while True:
+	if reloadConfig:
+		try:
+			if not os.path.exists(vsapi.rgConfigFile):
+				createResourceGroupFile()
+			if not os.path.getsize(vsapi.rgConfigFile):
+				createResourceGroupFile()
+			localConfig = vsutil.loadLocalConfig()
+			#pprint(localConfig)
+		except vsapi.VizError, e:
+			print >>sys.stderr, "Unable to load configuration. Reason : %s"%(str(e))
+			sys.exit(1)
+		reloadConfig = False
+
+	try:
+		choice = main_menu()
+	except KeyboardInterrupt, e:
+		print
+		print "^C. Exiting..."
+		sys.exit(1)
+	except EOFError, e:
+		print
+		print "^D. Aborting program"
+		print
+		sys.exit(1)
+
+	try:
+		if choice == 1:
+			create_tiled_display(localConfig)
+			reloadConfig = True
+		elif choice == 2:
+			delete_tiled_display(localConfig)
+			reloadConfig = True
+		elif choice == 3:
+			list_tiled_displays(localConfig)
+		elif choice == 4:
+			show_td_info(localConfig)
+		elif choice == 5:
+			break # out of our loop & exit
+	except KeyboardInterrupt, e:
+		print
+		print "^C. Aborting current operation..."
+		print
+	except EOFError, e:
+		print
+		print "^D. Aborting program"
+		print
+		sys.exit(1)
+
+sys.exit(0)

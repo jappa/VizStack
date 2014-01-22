@@ -1,0 +1,115 @@
+<?xml version="1.0" ?>
+
+<display
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/displayconfig.xsd" >
+	<model>Generic DFP Monitor</model>
+	<input>digital</input>
+	<hsync>
+		<min>30</min>
+		<max>150</max>
+	</hsync>
+	<vrefresh>
+		<min>50</min>
+		<max>120</max>
+	</vrefresh>
+	<default_mode>1280x1024_60</default_mode>
+	<!-- All modelines generated below from "umc <hres> <vres> <refresh> -rbt" -->
+	<mode>
+		<type>modeline</type>
+		<alias>800x600_60</alias>
+		<width>800</width>
+		<height>600</height>
+		<refresh>60</refresh>
+		<value>35.500000  800 848 880 960  600 603 607 618  +HSync -VSync</value> <!-- 800x600x59.84 @ 36.979kHz !-->
+	</mode>
+	<mode>
+		<type>modeline</type>
+		<alias>1024x768_60</alias>
+		<width>1024</width>
+		<height>768</height>
+		<refresh>60</refresh>
+		<value>56.000000  1024 1072 1104 1184  768 771 775 790  +HSync -VSync</value> <!-- 1024x768x59.87 @ 47.297kHz !-->
+	</mode>
+	<mode>
+		<type>modeline</type>
+		<alias>1152x864</alias>
+		<width>1152</width>
+		<height>864</height>
+		<refresh>60</refresh>
+		<value>69.750000  1152 1200 1232 1312  864 867 871 889  +HSync -VSync</value> <!-- 1152x864x59.80 @ 53.163kHz !-->
+	</mode>
+	<mode>
+		<type>modeline</type>
+		<alias>1280x800_60</alias>
+		<width>1280</width>
+		<height>800</height>
+		<refresh>60</refresh>
+		<value>71.000000  1280 1328 1360 1440  800 803 807 823  +HSync -VSync</value> <!-- 1280x800x59.91 @ 49.306kHz !-->
+	</mode>
+	<mode>
+		<type>modeline</type>
+		<alias>1280x960_60</alias>
+		<width>1280</width>
+		<height>960</height>
+		<refresh>60</refresh>
+		<value>85.250000  1280 1328 1360 1440  960 963 967 988  +HSync -VSync</value> <!-- 1280x960x59.92 @ 59.201kHz !-->
+	</mode>
+	<mode>
+		<type>modeline</type>
+		<alias>1280x1024_60</alias>
+		<width>1280</width>
+		<height>1024</height>
+		<refresh>60</refresh>
+		<value>91.000000  1280 1328 1360 1440  1024 1027 1031 1054  +HSync -VSync</value> <!--1280x1024x59.96 @ 63.194kHz !-->
+	</mode>
+	<mode>
+		<type>modeline</type>
+		<alias>1400x900_60</alias>
+		<width>1400</width>
+		<height>900</height>
+		<refresh>60</refresh>
+		<value>86.500000  1400 1448 1480 1560  900 903 907 926  +HSync -VSync</value> <!-- 1400x900x59.88 @ 55.449kHz !-->
+	</mode>
+	<mode>
+		<type>modeline</type>
+		<alias>1600x1200_60</alias>
+		<width>1600</width>
+		<height>1200</height>
+		<refresh>60</refresh>
+		<value>130.250000  1600 1648 1680 1760  1200 1203 1207 1235  +HSync -VSync</value> <!-- 1600x1200x59.92 @ 74.006kHz !-->
+	</mode>
+	<mode>
+		<type>modeline</type>
+		<alias>1680x1050_60</alias>
+		<width>1680</width>
+		<height>1050</height>
+		<refresh>60</refresh>
+		<value>119.000000  1680 1728 1760 1840  1050 1053 1057 1080  +HSync -VSync</value> <!-- 1680x1050x59.88 @ 64.674kHz !-->
+	</mode>
+	<mode>
+		<type>modeline</type>
+		<alias>1920x1080</alias>
+		<width>1920</width>
+		<height>1080</height>
+		<refresh>60</refresh>
+		<value>138.500000  1920 1968 2000 2080  1080 1083 1087 1111  +HSync -VSync</value> <!-- 1920x1080x59.93 @ 66.587kHz !-->
+	</mode>
+	<mode>
+		<type>modeline</type>
+		<alias>1920x1200</alias>
+		<width>1920</width>
+		<height>1200</height>
+		<refresh>60</refresh>
+		<value>154.000000  1920 1968 2000 2080  1200 1203 1207 1235  +HSync -VSync</value> <!-- 1920x1200x59.95 @ 74.038kHz !-->
+	</mode>
+	<mode>
+		<type>modeline</type>
+		<alias>2560x1600_60</alias>
+		<width>2560</width>
+		<height>1600</height>
+		<refresh>60</refresh>
+		<value>268.500000  2560 2608 2640 2720  1600 1603 1607 1646  +HSync -VSync</value> <!-- 2560x1600x59.97 @ 98.713kHz  !-->
+	</mode>
+</display>

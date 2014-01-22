@@ -1,0 +1,57 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+targetNamespace="http://www.hp.com"
+xmlns="http://www.hp.com"
+elementFormDefault="qualified" >
+
+<xs:element name="resourcegroupconfig">
+	<xs:complexType>
+		<xs:sequence>
+			<xs:element name="resourceGroup" minOccurs="0" maxOccurs="unbounded" >
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="name" type="xs:string" />
+						<xs:element name="handler" type="xs:string" />
+						<xs:element name="handler_params" type="xs:string" />
+						<xs:element name="resources">
+							<xs:complexType>
+								<xs:sequence>
+									<xs:element name="reslist" minOccurs="1" maxOccurs="unbounded" >
+										<xs:complexType>
+											<xs:sequence>
+												<xs:element name="res" minOccurs="1" maxOccurs="unbounded">
+													<xs:complexType>
+														<xs:choice>
+															<xs:element name="gpu">
+																<xs:complexType>
+																	<xs:sequence>
+																		<xs:element name="hostname" type="xs:string" minOccurs="0" maxOccurs="1" />
+																		<xs:element name="index" type="xs:nonNegativeInteger" minOccurs="0" maxOccurs="1" />
+																	</xs:sequence>
+																</xs:complexType>
+															</xs:element>
+															<xs:element name="server">
+																<xs:complexType>
+																	<xs:sequence>
+																		<xs:element name="hostname" type="xs:string" minOccurs="0" maxOccurs="1" />
+																		<xs:element name="server_number" type="xs:nonNegativeInteger" minOccurs="0" maxOccurs="1" />
+																	</xs:sequence>
+																</xs:complexType>
+															</xs:element>
+														</xs:choice>
+													</xs:complexType>
+												</xs:element>
+											</xs:sequence>
+										</xs:complexType>
+									</xs:element>
+								</xs:sequence>
+							</xs:complexType>
+						</xs:element>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+</xs:element>
+
+</xs:schema>

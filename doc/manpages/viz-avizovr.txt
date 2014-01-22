@@ -1,0 +1,75 @@
+VIZ-AVIZOVR(1)
+==============
+Manjunath Sripadarao <manjunaths@users.sourceforge.net>
+
+
+NAME
+----
+viz-avizovr - VizStack script to run Avizo on tiled displays
+
+
+SYNOPSIS
+--------
+*viz_avizovr* [-h, --help] [-t <DISPLAY_TILE>] [-m <DISPLAY_MODE>] [--no-framelock]
+
+
+DESCRIPTION
+-----------
+The viz_avizovr(1) script runs the Avizo program on tiled displays. Before running the script
+the AVIZO_HOME environment variable needs to be set. The DISPLAY environment also needs to be
+set as the Avizo GUI pops on the local node or in the case of running inside and RGS or TurboVNC
+session it pops on the remote display node. The Avizo multi-tiled server comes on the tiled-display
+specified in using the -t option. The Avizo config file for the specified display is auto generated
+by the script and is propogated to the nodes driving the tiled-display. 
+
+When VizStack is configured to drive a tiled-display via a node with multiple GPUs, Xinerama
+needs to be enabled on these displays such that the multiple displays appear as a single large 
+virtual display. To do this for a multi-tiled display, typically you would need to user 
+combine_displays=True in your resource_group_config.xml.
+
+
+OPTIONS
+-------
+*-h, --help*::
+     Prints a usage message, listing all the options, with a brief description
+     of each ones functionality.
+
+*-t* <DISPLAY_TILE>::
+     Specify the tiled display on which to run Avizo on. These are tiled
+     display resources, specified in /etc/vizstack/resource_config.xml.
+     	     $ sva_avizovr -t tile-2x2
+     Where tiled-2x2 is the name of the tiled display, these are specified
+     /etc/vizstack/resource_group_config.xml
+
+*-m* <DISPLAY_MODE>::
+     The resolution to run the X server at, for example
+     	 $ sva_avizovr -t tile-2x2 -m 1600x1200
+
+*--no-framelock*::
+     VizStack sets up framelock if this is enabled in the configuration of 
+     the used tiled display.  Framelock provides hardware synchronization of 
+     all the displays in the Tiled Display. If your framelock chain or tiled 
+     display is not setup properly for framelock, then Avizo will not be started. 
+     Use this option if framelock setup fails, but you want to use the tiled 
+     display without framelock.
+
+BUGS
+----
+See the README for how to report bugs.
+
+
+AUTHOR
+------
+Manjunath Sripadarao <manjunaths@users.sourceforge.net>
+
+RESOURCES
+---------
+SourceForge: <http://sourceforge.net/projects/vizstack>
+
+Main Web Site: <http://vizstack.sourceforge.net>
+
+COPYING
+-------
+Copyright \(C) 2009-2010 Hewlett-Packard. Free use of this software
+is granted under the terms of the GNU General Public Lincense (GPL).
+

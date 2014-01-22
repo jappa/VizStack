@@ -1,0 +1,206 @@
+#!/usr/bin/env python
+# VizStack - A Framework to manage visualization resources
+
+# Copyright (C) 2009-2010 Hewlett-Packard
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+"""
+run_sortlast
+
+Demo script to show how to run an OpenSG application
+that uses Sort Last compositing. This script uses the following
+method :
+
+ 1. Allocates <n> GPUs for rendering, and <n> X servers.
+
+ 2. Run a ClusterServer for every GPU.
+
+    While running, we ensure that the port numbers used by the Servers
+    dont clash with one anoother. This is ensured by computing the
+    server port number as a function of the X server number and
+    the screen number.
+
+    The ClusterServer is slightly modified from the base 
+    ClusterServer to enable rendering to happen even if no 
+    window manager is running.
+
+ 2. Run the SortLastWindowClient on the node from where the
+    the script is executed.
+
+ 3. Once the client exits, kill the servers
+
+That's it !
+"""
+
+import vsapi
+from pprint import pprint
+import sys
+import os
+from pprint import pprint
+from optparse import OptionParser
+import string
+
+# Setup the command line parser
+parser = OptionParser(
+usage="usage: %prog <-r num_gpus> [model_file]",
+description="""
+Renders a model using Sort Last compositing functionality of OpenSG.
+Results are displayed on the node where this script runs.
+
+Internally, OpenSG's SortLastClientWindow tutorial program is used
+render a specified 3D model using Sort Last compositing.
+
+If the optional model_file is not specified, then a default model
+will be used. You may pass in all model file formats supported by
+OpenSG - e.g., .obj, .wrl. Note that the directory 
+/opt/vizstack/share/demos/OpenSG/data has a few files for ready 
+user.
+""")
+parser.add_option("-r", "--num-gpus", action="store", type="int", dest="num_gpus", help="Use these many GPUs for parallel rendering.")
+
+# Parse & validate arguments
+(options, args) = parser.parse_args(sys.argv[1:])
+if options.num_gpus is None:
+	print >>sys.stderr, "You need to specify the number of GPUs you want to use"
+	parser.print_help()
+	sys.exit(-1)
+
+if options.num_gpus <= 0:
+	print >>sys.stderr, "Please specify one or more GPUs"
+	parser.print_help()
+	sys.exit(-1)
+	
+if len(args)==0:
+	print "No file specified. I'll reward you with a torus and a cylinder scene. This is not very useful if you're using more than 2 GPUs..."
+	inputFile = ""
+else:
+	inputFile = "-f%s"%(args[0])
+
+# Connect to the SSM
+ra = vsapi.ResourceAccess()
+
+single_gpu_spec = [ vsapi.GPU(), vsapi.Server() ] 
+# Allocate the <n> pairs of GPUs and X servers
+alloc = ra.allocate(
+	[single_gpu_spec] * options.num_gpus
+)
+resources = alloc.getResources()
+print "Allocated Resources are:"
+pprint(resources)
+print
+
+# Configure each X server to provide one Screen(Framebuffer)
+# on a GPU. The X server's maximum resolution needs to be 
+# fixed at the max size of the client window.
+#
+maxRes = [1600, 1200]
+for res in resources: # iterate through each GPU, Server combination.
+	gpu = res[0]
+	srv = res[1]
+	scr = vsapi.Screen(0)
+	if gpu.getAllowNoScanOut():
+		# Configure a virtual framebuffer if possible
+		gpu.clearScanouts()
+		scr.setFBProperty('resolution', maxRes)
+	else:
+		# Configure a dummy display if no display is connected
+		# already. Needed for GeForce GPUs to work.
+		if len(gpu.getScanouts())==0:
+			sc = gpu.getScanoutCaps()
+			gpu.setScanout(0, 'HP LP2065', sc[0][0])
+	scr.setGPU(gpu)
+	srv.addScreen(scr)
+
+#
+# NOTE: it is possible that we will get more than one
+# GPU on the same node. In this case, we could consider
+# controlling each GPU as one screen of an X server.
+# Naturally, only one X server would get used per node,
+# and the rest would lie unused. This is left as an
+# exercise for the reader !
+#
+
+# Propagate X server configuration to the SSM
+alloc.setupViz(ra)
+
+# Starts all the X servers
+alloc.startViz(ra)
+
+# Create a modified environment for the 
+# OpenSG servers to run. Currently, this ensures that
+# VirtualGL's librrfaker.so LD_PRELOAD does not affect
+# these
+safeEnv = vsapi.sanitisedEnv()
+
+# Create a mapping from the hostname to the fast network
+# we'll refer to the hostnames in the fast network, and
+# hope OpenSG does the rest
+allNodes = ra.queryResources(vsapi.VizNode())
+fastNetworkMap = {}
+for thisNode in allNodes:
+    fastNetworkMap[thisNode.getHostName()] = thisNode.getProperty('fast_network')
+
+# Run one OpenSG server program on each GPU
+binPrefix = '/opt/vizstack/share/demos/OpenSG/bin/'
+servers = []
+hosts = []
+basePort = 30000
+hostIndex = -1
+for pipe_details in resources:
+	hostIndex += 1
+	srv = pipe_details[1] # X Server corresponding to this GPU
+	thisScreen = srv.getScreen(0)
+	# Choose a port number to avoid clash with other
+	# running programs. Tying the port number to X server number
+	# and screen number may give good results I think.
+	portNum =  basePort+srv.getIndex()*50+thisScreen.getScreenNumber()
+	hostName = srv.getHostName()
+	thisHost = '%s:%d'%(fastNetworkMap[hostName], portNum)
+	hosts.append(thisHost)
+	cmd = ["%s/ClusterServer"%(binPrefix), "-geometry", "%dx%d+0+0"%(maxRes[0],maxRes[1]), "-w", "%s"%(thisHost) ]
+	#print cmd
+	# Start the server
+	servers.append(thisScreen.run(cmd, launcherEnv=safeEnv))
+
+# Run OpenSG's stock SortLastClusterClient program. This opens a GLUT window, and
+# lets the user use the mouse to interact with the model rendered using SortLast
+# compositing.
+cmd = "%s/SortLastClusterClient"%(binPrefix)
+
+# Assemble the complete client argument string
+cmd += " %s %s"%(string.join(hosts, " "), inputFile)
+
+# VirtualGL/TurboVNC support. If VGL_DISPLAY is set, then we're called from a TurboVNC desktop
+# with VirtualGL enabled. So we need to use "vglrun"
+if os.environ.has_key('VGL_DISPLAY'):
+	cmdPrefix = "/usr/bin/vglrun "
+else:
+	cmdPrefix = ""
+os.system("%s%s"%(cmdPrefix, cmd))
+
+# Terminate OpenSG servers if they are still running
+for srv in servers:
+	srv.kill()
+
+print "Cleaning up. Please wait..."
+# Kill all the X servers
+alloc.stopViz(ra)
+
+# Give up all the resources
+ra.deallocate(alloc)
+
+# Done!
+ra.stop()

@@ -1,0 +1,22 @@
+<?xml version="1.0" ?>
+
+<mouse 
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/mouseconfig.xsd">
+
+		<type>SystemMouse</type>
+		<driver>mouse</driver>
+		<option>
+			<name>Protocol</name>
+			<value>auto</value>
+		</option>
+		<option>
+			<name>Emulate3Buttons</name>
+			<value>no</value>
+		</option>
+		<option>
+			<name>ZAxisMapping</name>
+			<value>4 5</value>
+		</option>
+</mouse>

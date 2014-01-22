@@ -1,0 +1,22 @@
+<?xml version="1.0" ?>
+
+<keyboard 
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/keyboardconfig.xsd">
+
+		<type>SystemKeyboard</type>
+		<driver>kbd</driver>
+		<option>
+			<name>AutoRepeat</name>
+			<value>250 30</value>
+		</option>
+		<option>
+			<name>XkbModel</name>
+			<value>pc105</value>
+		</option>
+		<option>
+			<name>XkbLayout</name>
+			<value>us</value>
+		</option>
+</keyboard>

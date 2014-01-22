@@ -1,0 +1,80 @@
+#!/usr/bin/env python
+
+# VizStack - A Framework to manage visualization resources
+
+# Copyright (C) 2009-2010 Hewlett-Packard
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+"""
+vs-kill
+
+Kill VizStack jobs. This is done by removing the allocation for the job. This kills the X servers, as well as cleans up the job in the scheduler (if a scheduler is being used).
+"""
+import vsapi
+from vsapi import ResourceAccess, Screen, GPU, Server, Keyboard, Mouse, VizResource, VizError
+from pprint import pprint
+from optparse import OptionParser, OptionGroup
+import sys
+import re
+import time
+import string
+import socket
+import os
+import subprocess
+import socket
+
+parser = OptionParser(
+usage= "usage: viz_kill <job_id> [job_id] ...",
+description=
+"""Kills one or more VizStack jobs. This is done by removing the allocation for the job. This kills the X servers, as well as deletes the job in the scheduler(s) (only if a real scheduler is being used).
+""")
+(options, args) = parser.parse_args(sys.argv[1:])
+
+# Extra arguments are errors.
+if len(args)==0:
+	print >>sys.stderr, "Please specify a job id. Use -h for help."
+	sys.exit(-1)
+
+# Check all args
+jobIds = []
+for jobIdStr in args:
+	try:
+		id = int(jobIdStr)
+		jobIds.append(id)
+	except Exception, e:
+		print >>sys.stderr, "Bad argument: '%s'. Needs to be an integer."%(jobIdStr)
+		sys.exit(-1)
+
+# Connect to the SSM
+try:
+	ra = ResourceAccess()
+except VizError, e:
+	print >>sys.stderr, "%s"%(str(e))
+	sys.exit(-1)
+
+exitCode = 0
+for jobId in jobIds:
+	try:
+		ra.deallocate(jobId)
+	except VizError, e:
+		print >>sys.stderr, "Failed to kill job %d. Reason: %s"%(jobId, str(e))
+		exitCode = 1
+
+# Disconnect from the SSM - we're done!
+ra.stop()
+
+sys.exit(exitCode)

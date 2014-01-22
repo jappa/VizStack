@@ -1,0 +1,174 @@
+== What is VizStack ?
+
+VizStack is software framework that turns one more machines, with nVidia GPUs
+installed in them, into a shared multi-user resource. The machine(s) can be a
+cluster, a stand-alone fat node or even a bunch machines sitting on a LAN (sea-of-nodes)
+configuration. VizStack provides utilities to allocate resources (GPUs), run 
+applications on them, and free them when they are no longer needed. VizStack 
+provides ways to configure and drive display devices, as well as higher level 
+constructs like Tiled Displays.
+
+VizStack currently has scripts to support remote access of machine(s) using 
+HP Remote Graphics software (HP RGS) as well as TurboVNC/VirtualGL. VizStack
+supports machine(s) with nVidia Quadro graphics cards and nVidia Quadroplex Visual
+Computing System (VCS) to drive displays. VizStack is able to use SLURM and LSF
+as external schedulers to scheduler visualization resources such as GPUs and X
+servers, this makes it easy to integrate VizStack into existing High Performance
+Computing (HPC) environments.
+
+VizStack manages only the visualization resources (GPUs, X servers), and does
+not provide any utilities to do system management/setup on the nodes. VizStack
+can dynamically setup the visualization resources to meet any application
+requirement.
+
+== Quick Start
+
+VizStack works on three modes
+
+1. Sea of nodes
+2. Single node
+
+=== Switch console from VGA to text mode
+
+If your console is in VGA mode, please switch it to text mode. You can do
+this by editing /boot/grub/menu.lst and remove any "vga=" lines. 
+
+=== Remove previous version of VizStack
+
+If you have an earlier version of VizStack installed remove the rpm by
+doing "rpm -e vizstack".
+
+=== Install nVidia graphics drivers.
+
+Any version greater than 177.70.35 probably works with VizStack.
+
+# sh NVIDIA-Linux-x86_64-177.70.35-pkg2.run
+
+=== Installing Software Dependencies
+
+The software dependencies are xerces-c either 2.7 or 2.8, python-xml, llnl munge (http://home.gna.org/munge/) and SLURM (https://computing.llnl.gov/linux/slurm/). SLURM version is anything greater and 1.2.35, the latest 2.0.5 works too.
+
+=== Configure NTP
+
+NTP needs to be configured on each node.
+
+=== Configuring Munge
+
+This assumes you have already installed Munge. Munge needs a secret key to work. To generate the key
+
+----
+# dd if=/dev/urandom bs=1 count=1024 > /etc/munge/munge.key
+----
+
+If security is a concern, then consider using the below command line (Note: this will take a long time
+ to finish!).
+
+----
+# dd if=/dev/random bs=1 count=1024 > /etc/munge/munge.key
+----
+
+Propagate the key to all the nodes.
+
+----
+# for node in node1 node2 node3 node4 node5; do
+        scp /etc/munge/munge.key root@$node:/etc/munge;
+  done;
+----
+
+Restart Munge.
+
+----
+# service munge restart
+----
+
+=== Configuring SLURM
+
+First create a user named 'slurm' with the same uid and gid on all the nodes.
+
+----
+# for ((i 1; i <= 5; i++)); do
+    ssh root@node$i /usr/sbin/groupadd -g 666 slurm;
+    ssh root@node$i /usr/sbin/useradd -g 666 -u 666 -M -s /sbin/nologin slurm;
+done
+----
+
+next create the job credential private key
+
+----
+# openssl genrsa -out /etc/slurm/slurm.key 1024
+----
+
+create the job credential public certificate
+
+----
+# openssl rsa -in /etc/slurm/slurm.key -pubout -out /etc/slurm/slurm.cert
+----
+
+Make a copy of the slurm example file from /etc/slurm/slurm.conf.example and
+add/modify these things.
+
+----
+ControlMachine=node1
+...
+SlurmUser=slurm
+ ...
+JobCredentialPrivateKey=/etc/slurm/slurm.key
+JobCredentialPublicCertificate=/etc/slurm/slurm.cert
+...
+NodeName=node[1-5] State=UNKNOWN
+PartitionName=viz Nodes=node[1-5] Default=YES RootOnly=NO Shared=FORCE
+MaxTime=INFINITE State=UP
+----
+
+After making the modification copy the slurm.conf, slurm.key and slurm.cert
+to all nodes, see above for loop to see how.
+
+Restart slurm daemon on all the nodes. You should see something like
+
+----
+# sinfo -h
+viz*         up   infinite     5   idle node[1-5]
+----
+
+This would be a good time to install HP RGS and TurboVNC/VirtualGL.
+
+=== Configuring VizStack
+
+Run the below, command. Provided SLURM is installed and working this 
+should complete successfully and you should have a valid VizStack 
+installation.
+
+----
+# /opt/vizstack/sbin/vs-configure-system -s slurm <list of nodes>
+----
+
+If this fails then please refer to the manual to find a more
+detailed explanation for configuring VizStack.
+
+=== Creating resources
+
+Run /opt/vizstack/sbin/vs-manage-tiled-displays to configure the
+displays. Follow the menus that are displayed and create a single
+display (1x1), with a GPU width of 1 and GPU height 1. Choose
+the right node + GPU combination to which a display is connected.
+If let us say you have a node that is named n15 and the display is 
+connected to GPU-0, then you would have a hostname and index as n15/0.
+
+=== Running the SSM
+
+Starts the ssm, by type /opt/vizstack/sbin/vs-ssm as root on the
+head node or control node of your cluster.
+
+=== Run the test program
+
+Run /opt/vizstack/sbin/vs-test-gpus to test the GPUs. If all
+the above stuff went well, you'll have a working installation of
+VizStack.
+
+You'll need to use vs-manage-tiled-displays to configure additional
+tiled displays. You can also install ParaView from www.paraview.org
+and run it on your tiled display using the viz-paraview script.
+
+Enjoy!
+
+VizStack team

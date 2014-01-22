@@ -1,0 +1,76 @@
+<?xml version="1.0" ?>
+
+<!--
+
+Sony SRX
+
+This projector takes 4xDVI inputs, each capable of 2048x1080 resolution for an overall
+projector resolution of 4096x2160 !
+
+All Established, Standard and Detailed Timings from the EDID are included as
+valid modes, though one may not be interested in running at anything less than
+2048x1080 @ 60 Hz !
+
+FIXME: add the stereo modes here.
+-->
+
+<display
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/displayconfig.xsd" >
+	<model>Sony SRX PJ</model>
+	<input>digital</input>
+	<edid>/opt/vizstack/share/templates/displays/edids/Sony-SRX-PJ.bin</edid>
+	<edid_name>Sony SRX PJ</edid_name>
+	<default_mode>2048x1080_60</default_mode>
+	<mode>
+		<type>edid</type> 
+		<alias>2048x1080_60</alias> 
+		<alias>2048x1080</alias> 
+		<width>2048</width>
+		<height>1080</height>
+		<refresh>60</refresh>
+	</mode>
+	<mode>
+		<type>edid</type> 
+		<alias>2048x1080_24</alias>
+		<width>2048</width>
+		<height>1080</height>
+		<refresh>24</refresh>
+	</mode>
+	<mode>
+		<type>edid</type>
+		<alias>1600x1200_60</alias>
+		<width>1600</width>
+		<height>1200</height>
+		<refresh>60</refresh>
+	</mode>
+	<mode>
+		<type>edid</type>
+		<alias>1400x1050_60</alias>
+		<width>1400</width>
+		<height>1050</height>
+		<refresh>60</refresh>
+	</mode>
+	<mode>
+		<type>edid</type>
+		<alias>1280x1024_60</alias>
+		<width>1280</width>
+		<height>1024</height>
+		<refresh>60</refresh>
+	</mode>
+	<mode>
+		<type>edid</type>
+		<alias>1280x960_60</alias>
+		<width>1280</width>
+		<height>960</height>
+		<refresh>60</refresh>
+	</mode>
+	<mode>
+		<type>edid</type>
+		<alias>1024x768_60</alias>
+		<width>1024</width>
+		<height>768</height>
+		<refresh>60</refresh>
+	</mode>
+</display>

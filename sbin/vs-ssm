@@ -1,0 +1,2332 @@
+#!/usr/bin/python
+# VizStack - A Framework to manage visualization resources
+
+# Copyright (C) 2009-2010 Hewlett-Packard
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+#
+# System State Manager
+#
+# NOTE: we could use unix domain sockets too for enhanced security (i.e. disallowing
+# external access). But this will be # overly restrictive at times...
+#
+# At this time, munge based identification is being used. So security is probably not
+# a problem.
+#
+import socket
+from threading import Thread
+from xml.dom import minidom
+import select
+from pprint import pprint
+from pprint import pformat
+import string
+import xml
+import sys
+sys.path.append('/opt/vizstack/python') # add directory where our python modules are to be found.
+import os
+import traceback
+import math
+import time
+import copy
+import struct
+import pwd
+import vsapi
+import domutil
+import metascheduler
+from glob import glob
+import vsutil
+
+import logging
+import logging.config
+import calendar
+import array
+from optparse import OptionParser, OptionGroup
+
+g_logger = None
+g_master_file = vsapi.masterConfigFile
+g_node_file = vsapi.nodeConfigFile
+g_rg_file = vsapi.rgConfigFile
+g_system_template_dir = vsapi.systemTemplateDir
+g_override_template_dir = vsapi.overrideTemplateDir
+
+TRACE=15
+
+def trace(msg):
+	global g_logger
+	g_logger.log(TRACE, msg)
+
+def setupLogging():
+
+	global g_logger
+
+	logging.addLevelName(TRACE, 'TRACE')
+
+	try:
+		logging.config.fileConfig('/etc/vizstack/ssm-logging.conf')
+		g_logger = logging.getLogger("ssm")
+	except:
+		g_logger = logging.getLogger("ssm")
+		g_logger.setLevel(logging.INFO)
+
+		consoleHandler = logging.StreamHandler(sys.stdout)
+		formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+		consoleHandler.setFormatter(formatter)
+		g_logger.addHandler(consoleHandler)
+
+def logpprint(logFunc, obj):
+	logsprint(logFunc, pformat(obj))
+
+def logsprint(logFunc, msg):
+	for line in msg.split('\n'):
+		logFunc(line)
+
+# type of requests the SSM handles. These are kept
+# here to keep string comparisons sane!
+req_allocate = "allocate"
+req_attach = "attach"
+req_deallocate = "deallocate"
+req_query_resource = "query_resource"
+req_query_allocation = "query_allocation"
+req_update_serverconfig = "update_serverconfig"
+req_get_serverconfig = "get_serverconfig"
+req_wait_x_state = "wait_x_state"
+req_update_x_avail = "update_x_avail"
+req_stop_x_server = "stop_x_server"
+req_get_templates = "get_templates"
+req_refresh_resource_groups = "refresh_resource_groups"
+
+def __signalSocketToExit(s):
+	s.shutdown(socket.SHUT_WR)
+
+def __closeSocket(s):
+	"""
+	Forcibly close the socket
+	"""
+	try:
+		s.shutdown(socket.SHUT_RDWR)
+		s.close()
+	except:
+		pass
+#
+# A placeholder class for storing a
+# socket & information associated with an SSM client
+# 
+class ClientInfo:
+	def __init__(self):
+		self.socket = None
+		self.info = None
+
+def removeAllocation(ssmState, ms, allocId, all_clients):
+	# If any X servers are not valid, then disconnect their X servers as well
+	# FIXME: move this to the right place. This should happen when 
+	# remove the client from the list
+	g_logger.debug("Allocation %d is being removed. Disconnecting X servers for it :"%(allocId))
+	for si in range(len(all_clients)):
+		client = all_clients[si]
+		if not client.isXServer:
+			continue
+		if client.allocationIdForXServer == allocId:
+			# done with the scoket - we ask the other end to cleanup
+			# we don't close the socket yet. We'll close it when we get the EOF from
+			# that
+			g_logger.debug(' Disconneting X server %s'%(client.XServerFor))
+			__signalSocketToExit(client.socket)
+			#
+			# continue the loop, since the allocation can have many X servers
+			# We need to disconnect them all 
+			#
+
+	# If a deallocation succeeded, then we just remove this 
+	# id from the list of allocations to cleanup!
+	for thisClient in all_clients:
+		try:
+			thisClient.allocationsToCleanup.remove(allocId)
+		except ValueError, e:
+			pass
+
+	# remove this id from the list of active ones.
+	details = ssmState["allocations"].pop(allocId)
+
+	# deallocate the allocation given by the metascheduler
+	# this will return the objects to a "free" state
+	# to be used again.
+	ms.deallocate(details["allocObj"])
+
+def processAttachMessage(userInfo, attachNode, ssmState):
+	try:
+		allocId = getAllocId(attachNode, ssmState)
+	except ValueError, e:
+		return str(e)
+
+	if ssmState["allocations"].has_key(allocId):
+		# User access check. Allow root to attach, as well
+		# as the user
+		alloc = ssmState["allocations"][allocId]
+		if (userInfo['uid']!=0) and (userInfo['uid']!=alloc["userInfo"]['uid']):
+			statusMessage = "Access Denied : You can't attach to %d."%(allocId)
+			status = 1
+		else:
+			statusMessage = "Success"
+			status = 0
+	else:
+		statusMessage = "No such allocation - %d"%(allocId)
+		status = 1
+
+	if status != 0:
+		return """
+			<ssm>
+				<response>
+					<status>%d</status>
+					<message>%s</message>
+				</response>
+			</ssm>"""%(status, statusMessage)
+	
+	# get the allocation object
+	allocObj = ssmState["allocations"][allocId]["allocObj"]
+
+	# create the response corresponding to it
+	return __createAllocationResponse(allocObj, allocId)
+
+
+def processDeallocateMessage(ms, userInfo, deallocateNode, ssmState, all_clients):
+
+	try:
+		allocId = getAllocId(deallocateNode, ssmState)
+	except ValueError, e:
+		return str(e)
+
+	if ssmState["allocations"].has_key(allocId):
+		# User access check. Allow root to deallocate, as well
+		# as the user
+		alloc = ssmState["allocations"][allocId]
+		if (userInfo['uid']!=0) and (userInfo['uid']!=alloc["userInfo"]['uid']):
+			statusMessage = "Access Denied : You can't deallocate %d."%(allocId)
+			status = 1
+		else:
+			statusMessage = "Success"
+			status = 0
+			# remove this allocation
+			removeAllocation(ssmState, ms, allocId, all_clients)
+	else:
+		statusMessage = "No such allocation - %d"%(allocId)
+		status = 1
+
+	response = """
+		<ssm>
+			<response>
+				<status>%d</status>
+				<message>%s</message>
+			</response>
+		</ssm>"""%(status, statusMessage)
+
+	return response
+
+
+def processAllocateMessage(ms, client, allocateNode, ssmState, sysConfig):
+
+	userInfo = client.userInfo
+	g_logger.debug('Processing Allocate Message for uid=%d'%(userInfo['uid']))
+
+	appNameNode = domutil.getChildNode(allocateNode, "appName")
+	resDescNodes = domutil.getChildNodes(allocateNode, "resdesc")
+
+	# Extract the list of requirements
+	# resReq will be a list of lists, where each
+	# subList corresponds to one resdesc
+	resReq = []
+	for descNode in resDescNodes: # each resdec tag
+		resNodes = domutil.getAllChildNodes(descNode)
+		for innerList in resNodes:
+			if innerList.nodeName == "list":
+				realList = domutil.getAllChildNodes(innerList)
+				resSubReq = []
+				for node in realList: # each real resource
+					try:
+						newObj  = vsapi.deserializeVizResource(node, [vsapi.GPU, vsapi.SLI, vsapi.Server, vsapi.Keyboard, vsapi.Mouse, vsapi.ResourceGroup, vsapi.VizNode])
+						if isinstance(newObj, vsapi.VizResourceAggregate):
+							raise ValueError, "VizResourceAggregate objects are not allowed inside lists"
+					except ValueError, e:
+						# deserialization will fail with ValueError if the input
+						# XML is incorrect in some way.
+						g_logger.error('Bad allocation request rejected. Reason : %s'%(str(e)))
+						return """
+						<ssm>
+							<response>
+								<status>1</status>
+								<message>%s<//message>
+							</response>
+						</ssm>
+						"""%(str(e))
+					resSubReq.append(newObj)
+			else:
+				try:
+					newObj  = vsapi.deserializeVizResource(innerList, [vsapi.GPU, vsapi.SLI, vsapi.Server, vsapi.Keyboard, vsapi.Mouse, vsapi.ResourceGroup, vsapi.VizNode])
+				except ValueError, e:
+					g_logger.error('Bad allocation request rejected. Reason : %s'%(str(e)))
+					# deserialization will fail with ValueError if the input
+					# XML is incorrect in some way.
+					return """
+					<ssm>
+						<response>
+							<status>1</status>
+							<message>%s</status>
+						</response>
+					</ssm>
+					"""%(str(e))
+				# For ResourceGroup & VizNode, we handle things in a special way
+				if isinstance(newObj, vsapi.ResourceGroup):
+					# If the user only specified a resource group name, and no resources inside, then
+					# we use templates that are stored with us. This eases usage for a typical user.
+					if len(newObj.getResources())==0:
+						# expand using template
+						rgName = newObj.getName()
+						try:
+							rgNode = sysConfig["resource_groups"][rgName]
+							newObj = copy.deepcopy(rgNode) # Copy the whole definition
+						except KeyError:
+							g_logger.error('Bad allocation request rejected. Reason : Unknown resource group %s'%(rgName))
+							return """
+							<ssm>
+								<response>
+									<status>1</status>
+									<message>Unknown resource group '%s'</message>
+								</response>
+							</ssm>
+							"""%(rgName)
+					else:
+						# the resource group has resources inside it, then we'll try allocating them
+						pass
+
+				elif isinstance(newObj, vsapi.VizNode):
+					# If the node has no resources, then we search for the name
+					# and expand as a template
+					if len(newObj.getResources())==0:
+						hostName = newObj.getHostName()
+						try:
+#							if hostName is None:
+#								raise KeyError, "Need to specify hostname if you are passing a node with no resources. In this case you're trying to allocate all resources in a specific node, and it is essential to pass a complete node name."
+							if hostName is not None:
+								# expand using template. NOTE: this will allocate the whole node !
+								nNode = sysConfig["nodes"][hostName]
+								newObj = copy.deepcopy(nNode) # Copy the whole definition
+						except KeyError:
+							g_logger.error('Bad allocation request rejected. Reason : Unknown node %s'%(hostName))
+							return """
+							<ssm>
+								<response>
+									<status>1</status>
+									<message>Unknown node '%s'</message>
+								</response>
+							</ssm>
+							"""%(hostName)
+					else:
+						# if we came here, then the node has resources, maybe unnamed, but
+						# who cares !
+						pass
+
+				resSubReq = newObj
+		resReq.append(resSubReq)
+
+	searchNodeList = domutil.getChildNodes(allocateNode, "search_node")
+	searchNodeNames = map(lambda x: domutil.getValue(x), searchNodeList)
+
+	if len(searchNodeNames)>0:
+		# Validate names
+		uniqNameDict = {}
+		for name in searchNodeNames:
+			uniqNameDict[name] = None
+		if len(uniqNameDict.keys()) < len(searchNodeNames):
+			emsg = 'One or more nodes in search list were specified more than once'
+			g_logger.error('Bad allocation request rejected. Reason : %s'%(emsg))
+			return """
+			<ssm>
+				<response>
+					<status>1</status>
+					<message>%s</message>
+				</response>
+			</ssm>"""%(emsg)
+
+		# ensure that all names are valid
+		allNodeNames = sysConfig['nodes'].keys()
+		unknownNodes = filter(lambda x: x not in allNodeNames, searchNodeNames)
+		if len(unknownNodes)>0:
+			emsg = "One or more invalid nodes in search list : '%s'"%(string.join(unknownNodes,","))
+			g_logger.error('Bad allocation request rejected. Reason : %s'%(emsg))
+			return """
+			<ssm>
+				<response>
+					<status>1</status>
+					<message>%s</message>
+				</response>
+			</ssm>"""%(emsg)
+
+	try:
+		allocObj = ms.allocate(resReq, userInfo, searchNodeNames)
+	except vsapi.VizError, e:
+		g_logger.error('Failed allocation(VizError). Reason: %s'%(str(e)))
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>%s</message>
+			</response>
+		</ssm>"""%(str(e))
+	except ValueError, e:
+		g_logger.error('Failed allocation(ValueError). Reason: %s'%(str(e)))
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>%s</message>
+			</response>
+		</ssm>"""%(str(e))
+	except Exception, e:
+		g_logger.info('Failed allocation(Exception). Reason: %s'%(str(e)))
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>Unexpected error - %s</message>
+			</response>
+		</ssm>"""%(str(e))
+
+	# Success ...
+
+	# Generate an ID by incrementing the last ID
+	allocId = ssmState['lastReservationId']+1
+	ssmState['lastReservationId'] = allocId
+	allocResources = allocObj.getResources()
+
+	allocGPU =  vsapi.extractObjects(vsapi.GPU, allocResources)
+	# Note: allocated GPUs may have configured scanouts
+	# we don't clear these; expect the scripts to handle these
+	# cases
+
+	allocServer =  vsapi.extractObjects(vsapi.Server,allocResources)
+
+	# Clear X server states; strange things can happen otherwise!
+	for srv in allocServer:
+		srv.clearConfig()
+
+	sharedServers = map(lambda x: x.getSharedServer(), filter(lambda x: x.isShared(), allocGPU))
+
+	for srv in sharedServers:
+		g_logger.debug('Sharable server %s is allocated as a side effect'%(srv.hashKey()))
+		g_logger.debug('Owners of this shared server are : %s'%(srv.getOwners()))
+	allServers = allocServer + sharedServers
+
+	xServerUsers = {}
+	xServerAvailableFor = {}
+	# We assume that no X servers are running when we start
+	for srv in allServers:
+		# mark this server as stopped.
+		# in case of a shared server, the server could actually be running
+		# but wont be marked as such unless the server process comes up for
+		# the user
+		xServerUsers[srv.hashKey()] = []
+		xServerAvailableFor[srv.hashKey()] = []
+
+	if appNameNode is None:
+		appName = 'unknown'
+	else:
+		try:
+			appName = domutil.getValue(appNameNode)
+		except:
+			appName = 'unknown'
+
+	# store the allocation information as part of the SSM state
+	ssmState["allocations"][allocId] = {
+		"allocObj" : allocObj,
+		"userInfo" : userInfo,
+		"allocResources" : allocResources,   # Allocation corresponding to description, each element matches allocation request
+		"used_x_servers" : allServers, # Which servers are used by this allocation. Note that this includes the shared X servers which are not directly allocated.
+		"x_server_users" : xServerUsers,      # Users whose X servers have connected
+		"x_server_avail" : xServerAvailableFor,
+		"startTime" : time.gmtime(), # Save the GMT/UTC time. This makes it an easy reference.
+		"appName" : appName
+	}
+
+	# remember that we made an allocation in the context of this client
+	client.allocationsToCleanup.append(allocId)
+
+	return __createAllocationResponse(allocObj, allocId)
+
+def __createAllocationResponse(allocObj, allocId):
+
+	# return the response
+	response = """
+		<ssm>
+			<response>
+				<status>0</status>
+				<allocId>%d</allocId>
+				<message>Success</message>
+				<allocation>"""%(allocId)
+	allocResources = allocObj.getResources()
+	g_logger.debug("Allocated resource are:")
+	logpprint(g_logger.debug, allocResources)
+	for i in range(len(allocResources)):
+		resource = allocResources[i]
+		response = response + "<resource>"
+		response = response + "<value>"
+		if type(resource) is list:
+			response = response + "<list>"
+			for res in resource:
+				response = response + "%s"%(res.serializeToXML())
+			response = response + "</list>"
+		else:
+			response = response + "%s"%(resource.serializeToXML())
+		response = response + "</value>"
+		response = response +  "</resource>"
+	response = response + """
+				</allocation>
+			</response>
+		</ssm>"""
+
+	return response
+
+"""
+Returns an X server config. Not in the context of an allocation.
+
+Intended for tools like vs-X, but should not introduce any access issues.
+FIXME: decide on a policy for this
+"""
+def processGetServerConfigMessage(userInfo, getConfigNode, ssmState):
+	g_logger.debug('Processing GetServerConfig Message')
+	serverConfigNode = domutil.getChildNode(getConfigNode, vsapi.Server.rootNodeName)
+	if serverConfigNode is None:
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>No server configuration requested</message>
+			</response>
+		</ssm>
+		"""
+	
+	try:
+		tgtServer = vsapi.deserializeVizResource(serverConfigNode, [vsapi.Server])
+	except Exception, e:
+		g_logger.error('Bad Server Config Message. Reason: %s'%(str(e)))
+		# FIXME: get a good error message here
+		# errors during deserializing will prompt immediate failures.
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>Error getting the serverconfigs. Verify that the input request is correct.</message>
+			</response>
+		</ssm>
+		"""
+
+	if not tgtServer.referenceIsComplete():
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>Server was not completely specified. Need a server number and hostname for this request.</message>
+			</response>
+		</ssm>
+		"""
+
+	# search for the tgtServer in all allocations.
+	for allocId in ssmState["allocations"]:
+		alloc = ssmState["allocations"][allocId]
+		x_servers = alloc["used_x_servers"]
+		for server in x_servers:
+			# if we find a match then we are done
+			# FIXME: enforce access rights here !!!
+			# AND/OR remove the scheduler info ?
+			if server.refersToTheSame(tgtServer):
+				return """<?xml version="1.0" ?><ssm><response><status>%d</status><message>%s</message><return_value>%s</return_value></response></ssm>"""%(0,"Success",ssmState['x_server_config'][server.hashKey()].serializeToXML())
+
+	# if we came here, then nothing matched...
+	return """<?xml version="1.0" ?>
+	<ssm>
+		<response>
+			<status>1</status>
+			<message>No such X server.</message>
+		</response>
+	</ssm>"""
+
+"""
+Update the configuration of one or more servers (that are part of the same allocation) as an atomic operation.
+
+By doing this "at once", we ensure that resources can move around X servers. Without this semantic, moving
+resources across X servers would be tedious and require something like an "empty out the X server" message.
+
+On success, the X servers will have the new configuration. On failure, the configuration of the X
+servers is unchanged (no partial updates are made to the configuration).
+
+TBD: should we disallow configuration changes when the X server(s) are not running ??
+
+Note:
+
+1. This message ignores "deep specification" of GPUs. In particular, GPU's BusID, and or or scheduler information
+will be ignored (and removed).
+
+2. 
+"""
+def processUpdateServerConfigMessage(userInfo, requestNode, ssmState):
+	g_logger.debug('Processing UpdateServerConfig Message')
+
+	# get the allocation ID
+	allocNode = domutil.getChildNode(requestNode, "allocId")
+	if allocNode is None:
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>Incomplete message. You need to specify an allocation id</message>
+			</response>
+		</ssm>"""
+
+	try:
+		allocId = int(domutil.getValue(allocNode))
+		if allocId<0:
+			raise ValueError, "Allocation ID needs to be Non-negative."
+	except ValueError:
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>Bad allocation id. This needs to be a non-negative integer.</message>
+			</response>
+		</ssm>"""
+
+	# error if this allocation does not exist
+	if not ssmState["allocations"].has_key(allocId):
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>Invalid allocation id. There is no active allocation corresponding to it.</message>
+			</response>
+		</ssm>"""
+
+	alloc = ssmState["allocations"][allocId]
+
+	# User access check. Allow root to update server configuration,
+	# as well as the user who allocated the server
+	# FIXME: why am I allowing root access here ??
+	if (userInfo['uid']!=0) and (userInfo['uid']!=alloc["userInfo"]['uid']):
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>You don't have access to allocation %d.</message>
+			</response>
+		</ssm>"""%(allocId)
+
+	# now, get the servers
+	serverConfigs = domutil.getChildNodes(requestNode, vsapi.Server.rootNodeName)
+
+	# deserialize them all !
+	newServers = []
+	for snode in serverConfigs:
+		try:
+			# print "Decoding : ", snode.toxml()
+			obj = vsapi.deserializeVizResource(snode, [vsapi.Server])
+
+			# Don't allow configuration of anything but 'normal' servers
+			if obj.getType() not in vsapi.VALID_SERVER_TYPES:
+				raise ValueError, "Bad Server Type '%s'"%(obj.getType())
+			if obj.getType() != vsapi.NORMAL_SERVER:
+				raise ValueError, "You may update the configuration of only normal servers, not of type '%s'"%(obj.getType())
+				
+			newServers.append(obj)
+		#
+		# errors during deserializing will prompt immediate failures.
+		#
+		except ValueError, e:
+			return """
+			<ssm>
+				<response>
+					<status>1</status>
+					<message>Error getting the serverconfigs. Verify that the input request is correct. Reason: %s</message>
+				</response>
+			</ssm>
+			"""%(str(e))
+		except TypeError, e:
+			return """
+			<ssm>
+				<response>
+					<status>1</status>
+					<message>Error getting the serverconfigs. Verify that the input request is correct. Reason: %s</message>
+				</response>
+			</ssm>
+			"""%(str(e))
+
+
+	# Bad input checks :  For each X server,  do a few checks
+	errorMessage = ""
+	for server in newServers:
+		if not server.referenceIsComplete():
+			errorMessage = errorMessage + "Server is not completely specified\n"
+			continue
+
+		valid_servers = alloc["used_x_servers"]
+
+		# 1. is this X server part of the allocation ?
+		serverRef = None
+		for srvr in valid_servers:
+			if srvr.refersToTheSame(server):
+				serverRef = srvr
+				break
+		if serverRef is None:
+			errorMessage = errorMessage + "Server is not part of the specified allocation\n"
+			continue
+
+		# 2. is this X server same as some other X server in this request ?
+		for other_server in newServers:
+			if server is other_server:
+				continue
+			if server.refersToTheSame(other_server):
+				errorMessage = errorMessage + "Multiple references to the same server detected in this request\n"
+				break
+
+		if len(errorMessage)>0:
+			continue
+
+		# 3. Does this X server use resources that are not part of this allocation ?
+		#    These resources currently are GPUs and input devices
+		for screen in server.getScreens():
+			for res in screen.getUsedResources():
+				# check if this GPU is something that was allocated for us
+				resReference = None
+				for otherRes in vsapi.extractObjects(vsapi.VizResource, alloc["allocResources"]):
+					if res.refersToTheSame(otherRes, True):
+						resReference = otherRes
+						break
+				if resReference is None:
+					errorMessage = errorMessage + "Attempt to use %s that is not part of this allocation"%(resReference.hashKey())
+
+		# 4. will this configuration of the X server work standalone ?
+		# FIXME: implement this check
+
+	if len(errorMessage)>0:
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>%s</message>
+			</response>
+		</ssm>"""%(errorMessage)
+	
+	# Gather information about which GPUs and input devices are used in which X servers
+	resourceUsage = {}
+
+	# gather information about new servers
+	for server in newServers:
+		# collect info about all GPUs on these "new" servers
+		for screen in server.getScreens():
+			for res in screen.getUsedResources():
+				key = res.hashKey()
+				if resourceUsage.has_key(key):
+					try:
+						resourceUsage[key][server.getIndex()] += 1
+					except KeyError:
+						resourceUsage[key][server.getIndex()] = 1
+				else:
+					resourceUsage[key] = { server.getIndex() : 1 }
+
+	# gather information about existing servers
+	for server in alloc["used_x_servers"]:
+		# skip this server if its configuration is being be updated
+		# we need to do this since it would have been accounted for already
+		skip = False
+		for compServer in newServers:
+			if server.refersToTheSame(compServer):
+				skip = True
+				break
+		if skip:
+			continue
+
+		# collect info about all GPUs on this server
+		for screen in server.getScreens():
+			for gpu in screen.getUsedResources():
+				key = res.hashKey()
+				if resourceUsage.has_key(key):
+					try:
+						resourceUsage[key][server.getIndex()] += 1
+					except KeyError:
+						resourceUsage[key][server.getIndex()] = 1
+				else:
+					resourceUsage[key] = { server.getIndex() : 1 }
+	
+	# Time for incorrect resource usage check
+	#
+	# 1. Is any resource (GPU, SLI) used in more than one X server ?
+	#    TODO: this restriction needs to be relaxed when we implement GPU sharing.
+	# 2. Is an input device used in more than one X server ?
+	#    FIXME: implement this check
+
+	for key in resourceUsage:
+		if len(resourceUsage[key])>1:
+			errorMessage = errorMessage + "%s has been used in more than one X server."%(key)
+
+	if len(errorMessage)>0:
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>%s</message>
+			</response>
+		</ssm>"""%(errorMessage)
+
+	# FIXME: 
+	# Remove the irrelevant information from the GPUs that are part of the X server configuration.
+	# At present, this is only the scheduler information
+
+	# Generate a list of X server configurations that needs changing
+	updateConfigList = []
+	for server in alloc["used_x_servers"]:
+		# skip this server if its configuration is being be updated
+		# we need to do this since it would have been accounted for already
+		updateWith = filter(lambda x: server.refersToTheSame(x), newServers)
+		if len(updateWith)>0:
+			updateConfigList.append(updateWith[0])
+
+	# Update configuration of existing servers
+	for newsvr in updateConfigList:
+		svr = ssmState["x_server_config"][newsvr.hashKey()]
+		svr.setConfig(newsvr)
+		g_logger.debug("Server configuration for %s has been updated"%(newsvr.hashKey()))
+		#print svr.serializeToXML()
+
+	# Nothing succeeds like success !
+	return """
+	<ssm>
+		<response>
+			<status>0</status>
+			<message>Success</message>
+		</response>
+	</ssm>
+	"""
+
+def processQueryAllocationMessage(userInfo, queryNode, ssmState):
+	g_logger.debug('Processing QueryAllocation Message')
+
+	allocIdList = []
+	allocNode = domutil.getChildNode(queryNode, "allocId")
+	if allocNode is None:
+		# return a list of all allocations, along with who they are allocated to, 
+		# but dont include any details about them
+		allocIdList = ssmState["allocations"].keys()
+		statusMessage = "Success"
+		status = 0
+	else:
+		id = int(domutil.getValue(allocNode))
+		if ssmState["allocations"].has_key(id):
+			statusMessage = "Success"
+			allocIdList = [id]
+			status = 0
+		else:
+			statusMessage = "No such allocation - %d"%(id)
+			status = 1
+
+	response = """
+		<ssm>
+			<response>
+				<status>%d</status>
+				<message>%s</message>
+				<return_value>"""%(status, statusMessage)
+
+	for allocId in allocIdList:
+		#
+		# FIXME: access check here - should all users be able to see 
+		# details of all allocations
+		#
+		# return full details about the requested allocation.
+		alloc = ssmState["allocations"][allocId]
+		response = response + "<allocation>"
+		response = response + "<allocId>%d</allocId>"%(allocId)
+		pwinfo = pwd.getpwuid(alloc["userInfo"]["uid"])
+		response = response + "<userName>%s</userName>"%(pwinfo[0])
+		response = response + "<startTime>%s</startTime>"%(calendar.timegm(alloc["startTime"]))
+		response = response + "<appName>%s</appName>"%(alloc["appName"])
+		response = response + "<resources>"
+		for res in vsapi.extractObjects(vsapi.VizResource, alloc["allocResources"]):
+			#print res
+			response = response + res.serializeToXML(detailedConfig=False)
+		response = response + "</resources>"
+		response = response + "</allocation>"
+
+	response = response + """
+			</return_value>
+		</response>
+	</ssm>"""
+
+	return response
+
+def processQueryResourceMessage(userInfo, queryNode, sysConfig):
+	g_logger.debug('Processing QueryResource Message')
+	childNodes = domutil.getAllChildNodes(queryNode)
+
+	# Disallow more than one item in the query
+	if len(childNodes)>1:
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>You may specify a maximum of one search item while querying for resources.</message>
+			</response>
+		</ssm>"""
+
+	# An empty query means "give me all you have" !
+	if len(childNodes)==0:
+		ret = "<ssm><response><status>0</status><return_value>"
+		for thisNode in sysConfig['nodes'].values():
+			ret += thisNode.serializeToXML()
+		for thisRG in sysConfig['resource_groups'].values():
+			ret += thisRG.serializeToXML()
+		ret += "</return_value></response></ssm>"
+		return ret
+
+	# Get the single search Item
+	try:
+		searchItem = vsapi.deserializeVizResource(childNodes[0], [vsapi.GPU, vsapi.SLI, vsapi.Server, vsapi.Keyboard, vsapi.Mouse, vsapi.ResourceGroup, vsapi.VizNode])
+	except ValueError, e:
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>Bad input - %s</message>
+			</response>
+		</ssm>"""%(str(e))
+
+	# create the right search list depending on whether or not the query is
+	# for an aggregate
+	if not isinstance(searchItem, vsapi.VizResourceAggregate):
+		searchList = []
+		for nodeName in sysConfig['nodes']:
+			resList = sysConfig['nodes'][nodeName].getResources()
+			for innerItem in resList:
+				if isinstance(innerItem, list):
+					searchList += innerItem
+				else:	
+					searchList.append(innerItem)
+	else:
+		searchList = []
+		for attrib in ['nodes', 'resource_groups']:
+			searchList += sysConfig[attrib].values()
+
+	
+	# Do the matching
+	resultList = filter(lambda x: x.typeSearchMatch(searchItem), searchList)	
+
+	# Else send out the list, which may be empty - meaning no matches
+	ret = "<ssm><response><status>0</status><return_value>"
+	for item in resultList:
+		ret = "%s%s"%(ret,item.serializeToXML())
+	ret = "%s</return_value></response></ssm>"%(ret)
+
+	return ret
+	
+def getUnsignedInt(domNode, name, nameDesc):
+	node = domutil.getChildNode(domNode, name)
+	if node is None:
+		raise ValueError, """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>You need to specify an %s</message>
+			</response>
+		</ssm>
+		"""%(nameDesc)
+
+	try:
+		nodeVal = int(domutil.getValue(node))
+		if nodeVal<0:
+			raise ValueError, "Negative value"
+	except ValueError:
+		raise ValueError, """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>Bad %s. This needs to be a non-negative integer.</message>
+			</response>
+		</ssm>"""%(nameDesc)
+
+	return nodeVal
+
+def getAllocId(domNode, ssmState):
+	allocId = getUnsignedInt(domNode, "allocId", "Allocation ID")
+
+	# error if this allocation does not exist
+	if not ssmState["allocations"].has_key(allocId):
+		raise ValueError, """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>Invalid allocation id. There is no active allocation corresponding to it.</message>
+			</response>
+		</ssm>"""
+
+	return allocId
+
+def processStopXServerMessage(all_clients, client, userInfo, queryNode, ssmState):
+	g_logger.debug('Processing StopXServer Message')
+
+	# Get and validate parameters
+	try:
+		allocId = getAllocId(queryNode, ssmState)
+	except ValueError, e:
+		return str(e)
+
+	#
+	# do auth validation - a user should not be able to stop other users X servers
+	#
+	if (userInfo['uid'] != 0) and (ssmState["allocations"][allocId]["userInfo"]['uid'] !=  userInfo['uid']):
+		return """<ssm>
+			<response>
+				<status>1</status>
+				<message>Access denied. You cannot kill the X servers. Only root OR the owner of the servers is allowed to kill them</message>
+			</response>
+		</ssm>"""
+		
+	serversToStop = []
+	serverConfigNodes = domutil.getChildNodes(queryNode, vsapi.Server.rootNodeName)
+	for node in serverConfigNodes:
+		try:
+			srv = vsapi.deserializeVizResource(node, [vsapi.Server])
+
+			if not srv.isCompletelyResolvable():
+				raise ValueError, "Incomplete X server passed %s"%(srv.hashKey())
+
+			serversToStop.append(srv)
+		except ValueError, e:
+			return """
+			<ssm>
+				<response>
+					<status>1</status>
+					<message>%s</message>
+				</response>
+			</ssm>"""%(str(e))
+
+	# If no servers are specified, then we consider all of them
+	if len(serversToStop)==0:
+		#serversToStop = vsapi.extractObjects(vsapi.Server, ssmState["allocations"][allocId]["allocResources"])
+		# Stop all X servers, including the shared ones
+		serversToStop = ssmState["allocations"][allocId]["used_x_servers"]
+
+	if len(serversToStop)==0:
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>The allocation does not contain any X servers. So can't kill any!</message>
+			</response>
+		</ssm>"""
+
+	g_logger.debug('Stopping the following servers in allocId = %d :'%(allocId))
+	logpprint(g_logger.debug, serversToStop)
+
+	# ask all the X servers in our list to close.
+	#
+	# NOTE: we don't keep track of which X servers were not running,
+	# and hence not stopped.
+	#
+	for c in all_clients:
+		if not c.isXServer:
+			continue
+		if c.allocationIdForXServer != allocId:
+			continue
+		for srv in serversToStop:
+			if c.XServerFor.refersToTheSame(srv):
+				# we close our write end so that the X client
+				# gets the EOF. In response to this, the X client
+				# will kill its X server, wait for the X server to die
+				# and then update us that it is unavailable, and 
+				# FINALLY we get the EOF from client socket
+				try:
+					g_logger.debug("Stopping server %s"%(srv.hashKey()))
+					c.socket.shutdown(socket.SHUT_WR)
+				except socket.error, e:
+					pass
+
+	# Success
+	return """
+	<ssm>
+		<response>
+				<status>0</status>
+				<message>Success</message>
+		</response>
+	</ssm>"""
+
+def processGetTemplatesMessage(getTemplatesNode, sysConfig):
+	g_logger.debug('Processing GetTemplate message')
+	allChildren = domutil.getAllChildNodes(getTemplatesNode)
+	if len(allChildren)>1:
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>No more than one query item is allowed</message>
+			</response>
+		</ssm>
+		"""
+	candidates = sysConfig['templates']['gpu'].values()+sysConfig['templates']['display'].values()+sysConfig['templates']['keyboard'].values()+sysConfig['templates']['mouse'].values()
+	if len(allChildren)==1:
+		try:
+			searchOb = vsapi.deserializeVizResource(allChildren[0], [vsapi.GPU, vsapi.DisplayDevice, vsapi.Keyboard, vsapi.Mouse])
+		except ValueError, e:
+			return """
+			<ssm>
+				<response>
+					<status>1</status>
+					<message>Failed to get query item : %s</message>
+				</response>
+			</ssm>
+			"""%(str(e))
+		results = filter(lambda x: x.typeSearchMatch(searchOb), candidates)
+	else:
+		results = candidates
+
+	ret = "<ssm>"
+	ret += "<response>"
+	# 0 matches means failure, 1 or more is success
+	# This helps the application writer
+	if len(results)>0:
+		ret += "<status>0</status>"
+		ret += "<message>Success</message>"
+		ret += "<return_value>"
+		for thisOb in results:
+			ret += thisOb.serializeToXML()
+		ret += "</return_value>"
+	else:
+		ret += "<status>1</status>"
+		ret += "<message>No template matching your query was found</message>"
+	ret += "</response>"
+	ret += "</ssm>"
+	return ret
+
+def processRefreshRGMessage(refreshRGNode, sysConfig, userInfo):
+	global g_rg_file
+	g_logger.debug('Processing RefreshRG message')
+	try:
+		if userInfo['uid'] != 0:
+			raise vsapi.VizError(vsapi.VizError.ACCESS_DENIED, "Only root is allowed to refresh SSM's resource groups")
+
+		resgroups = vsutil.loadResourceGroups(sysConfig, g_rg_file)
+	except vsapi.VizError, e:
+		return """<ssm>
+		<response>
+			<status>1</status>
+			<message>Failed to refresh resource groups. Reason : %s</message>
+		<//response>
+		</ssm>"""%(str(e))
+
+	# Replace the resource group		
+	sysConfig['resource_groups'] = resgroups
+
+	ret ="<ssm>"
+	ret += "<response>"
+	ret += "<status>0</status>"
+	ret += "<message>Success</message>"
+	ret += "</response>"
+	ret += "</ssm>"	
+	return ret
+
+def processWaitXStateMessage(client, userInfo, queryNode, ssmState):
+	# Get and validate parameters
+	try:
+		allocId = getAllocId(queryNode, ssmState)
+		newState = getUnsignedInt(queryNode, "newState", "New State")
+		timeoutNode = domutil.getChildNode(queryNode, "timeout")
+		if timeoutNode is not None:
+			timeout = getUnsignedInt(queryNode, "timeout", "Timeout")
+		else:
+			timeout = None
+	except ValueError, e:
+		return str(e)
+
+	serversToWaitOn = []
+	serverConfigNodes = domutil.getChildNodes(queryNode, vsapi.Server.rootNodeName)
+	for node in serverConfigNodes:
+		try:
+			srv = vsapi.deserializeVizResource(node, [vsapi.Server])
+
+			if not srv.isCompletelyResolvable():
+				raise ValueError, "Incomplete X server passed %s"%(srv.hashKey())
+
+			serversToWaitOn.append(srv)
+		except ValueError, e:
+			return """
+			<ssm>
+				<response>
+					<status>1</status>
+					<message>%s</message>
+				</response>
+			</ssm>"""%(str(e))
+
+	if (newState<0) or (newState>1):
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>Invalid value for newState. Allowed values are 0 and 1</message>
+			</response>
+		</ssm>"""
+
+	if (timeout is not None) and (timeout>vsapi.X_WAIT_MAX):
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>Too high a value for timeout</message>
+			</response>
+		</ssm>"""
+
+	# If no servers are specified, then we consider all of them
+	if len(serversToWaitOn)==0:
+		serversToWaitOn = vsapi.extractObjects(vsapi.Server, ssmState["allocations"][allocId]["used_x_servers"])
+
+	if len(serversToWaitOn)==0:
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>The allocation does not contain any X servers. So can't wait on any!</message>
+			</response>
+		</ssm>"""
+
+	g_logger.debug('Processing WaitXState Message allocId=%d newState=%d timeout=%s for the following servers'%(allocId, newState, timeout))
+	logpprint(g_logger.debug, serversToWaitOn)
+
+	# Check the state of all those X servers	
+	xServerAvail = ssmState["allocations"][allocId]["x_server_avail"]
+
+	matchFailServers = 0
+	for srv in serversToWaitOn:
+		try:
+			srvUsers = xServerAvail[srv.hashKey()]
+		except IndexError:
+			return """
+			<ssm>
+				<response>
+					<status>1</status>
+					<message>%s is not part of allocation %d</message>
+				</response>
+			</ssm>"""%(srv.hashKey(), allocId)
+			
+		if(newState==0):
+			if userInfo['uid'] in srvUsers:
+				matchFailServers += 1
+		else:
+			if userInfo['uid'] not in srvUsers:
+				matchFailServers += 1
+
+	# If the state matches now, then reply now - why wait ?!
+	if matchFailServers == 0:
+		return """
+		<ssm>
+			<response>
+				<status>0</status>
+				<message>success</message>
+			</response>
+		</ssm>"""
+
+	# if the timeout was 0, then an immediate timeout is returned
+	if (timeout is not None) and (timeout == 0):
+			return """
+			<ssm>
+					<response>
+						<status>2</status>
+						<message>%d of %d servers are not in the desired state</message>
+					</response>
+			</ssm>"""%(matchFailServers, len(serversToWaitOn), timeout)
+
+	# Record the fact that we didn't respond
+	# and also the request
+	client.responsePending = True
+	client.requestParams = {
+		'message' : 'waitXState',
+		'timeout' : timeout,
+		'newState' : newState,
+		'allocId' : allocId,
+		'servers' : serversToWaitOn,
+	}
+	if timeout is None:
+		client.requestParams['endAt'] = None
+	else:
+		client.requestParams['endAt'] =time.time()+timeout # record the end time
+	
+	g_logger.debug("Deferring response for WaitXState message.")
+	return ""
+
+def processUpdateXAvailMessage(client, userInfo, updateXAvailNode, ssmState):
+	if not client.isXServer:
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>X server state can be updated only by X servers.</message>
+			</response>
+		</ssm>
+		"""
+	serverNode = domutil.getChildNode(updateXAvailNode, vsapi.Server.rootNodeName)
+	if serverNode is None:
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>No server specified</message>
+			</response>
+		</ssm>
+		"""
+
+	try:
+		server = vsapi.deserializeVizResource(serverNode, [vsapi.Server])
+		if not server.isCompletelyResolvable():
+			raise ValueError, "Incomplete X server passed %s"%(server.hashKey())
+	except ValueError, e:
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>%s</message>
+			</response>
+		</ssm>"""%(str(e))
+	try:
+		newState = getUnsignedInt(updateXAvailNode, "newState", "New State")
+	except ValueError, e:
+		return str(e)
+
+	if (newState<0) or (newState>1):
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>Invalid value for newState. Allowed values are 0 and 1</message>
+			<response>
+		</ssm>"""
+	g_logger.debug('Processing UpdateXAvail Message. newState=%d for %s'%(newState, server))
+	if client.XServerFor.hashKey() != server.hashKey():
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>X server '%s' is not allowed to change the state of another X server '%s'</message>
+			<response>
+		</ssm>"""%(client.XServerFor.hashKey(), server.hashKey())
+
+	try:
+		alloc = ssmState["allocations"][client.allocationIdForXServer]
+	except KeyError, e:
+		# In some cases, the allocation has gone away, and the next processed message is this.
+		# we just fail these.
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>Allocation correspond to X server '%s' is no longer active</message>
+			<response>
+		</ssm>"""%(server.hashKey())
+
+	# update list of users for which server is available
+	if newState:
+		alloc["x_server_avail"][server.hashKey()].append(userInfo['uid'])
+		client.serverRunning = True
+	else:
+		if client.serverRunning:
+			alloc["x_server_avail"][server.hashKey()].remove(userInfo['uid'])
+		client.serverRunning = False
+	return ""
+
+def processMessage(ms, msgDom, sysConfig, ssmState, client, all_clients):
+	"""
+	return status is True/False depending on what happened to the message
+	"""
+	userInfo = client.userInfo
+	# FIXME: complete validation of input is not done yet.
+	# we need to act on only one query (and ensure there's only one)
+	rootNode = msgDom.getElementsByTagName("ssm")
+
+	response = ""
+	request = ""
+	badRequest = True
+
+	allocateNode = domutil.getChildNode(rootNode[0], req_allocate)
+	if allocateNode != None:
+		request = req_allocate
+		badRequest = False
+		response = processAllocateMessage(ms, client, allocateNode, ssmState, sysConfig)
+
+	attachNode = domutil.getChildNode(rootNode[0], req_attach)
+	if attachNode != None:
+		request = req_attach
+		badRequest = False
+		response = processAttachMessage(userInfo, attachNode, ssmState)
+
+	deallocateNode = domutil.getChildNode(rootNode[0], req_deallocate)
+	if deallocateNode != None:
+		request = req_deallocate
+		badRequest = False
+		response = processDeallocateMessage(ms, userInfo, deallocateNode, ssmState, all_clients)
+
+	queryNode = domutil.getChildNode(rootNode[0], req_query_resource)
+	if queryNode != None:
+		request = req_query_resource
+		badRequest = False
+		response = processQueryResourceMessage(userInfo, queryNode, sysConfig)
+
+	queryNode = domutil.getChildNode(rootNode[0], req_query_allocation)
+	if queryNode != None:
+		request = req_query_allocation
+		badRequest = False
+		response = processQueryAllocationMessage(userInfo, queryNode, ssmState)
+
+	updateConfigNode = domutil.getChildNode(rootNode[0], req_update_serverconfig)
+	if updateConfigNode != None:
+		request = req_update_serverconfig
+		badRequest = False
+		response = processUpdateServerConfigMessage(userInfo, updateConfigNode, ssmState)
+
+	getConfigNode = domutil.getChildNode(rootNode[0], req_get_serverconfig)
+	if getConfigNode != None:
+		request = req_get_serverconfig
+		badRequest = False
+		response = processGetServerConfigMessage(userInfo, getConfigNode, ssmState)
+
+	waitXStateNode = domutil.getChildNode(rootNode[0], req_wait_x_state)
+	if waitXStateNode != None:
+		request = req_wait_x_state
+		badRequest = False
+		response = processWaitXStateMessage(client, userInfo, waitXStateNode, ssmState)
+
+	updateXAvailNode = domutil.getChildNode(rootNode[0], req_update_x_avail)
+	if updateXAvailNode != None:
+		request = req_update_x_avail
+		badRequest = False
+		response = processUpdateXAvailMessage(client, userInfo, updateXAvailNode, ssmState)
+
+	stopXServerNode = domutil.getChildNode(rootNode[0], req_stop_x_server)
+	if stopXServerNode != None:
+		request = req_stop_x_server
+		badRequest = False
+		response = processStopXServerMessage(all_clients, client, userInfo, stopXServerNode, ssmState)
+
+	getTemplatesNode = domutil.getChildNode(rootNode[0], req_get_templates)
+	if getTemplatesNode != None:
+		request = req_get_templates
+		badRequest = False
+		response = processGetTemplatesMessage(getTemplatesNode, sysConfig)
+
+	refreshRGNode = domutil.getChildNode(rootNode[0], req_refresh_resource_groups)
+	if refreshRGNode != None:
+		request = req_refresh_resource_groups
+		badRequest = False
+		response = processRefreshRGMessage(refreshRGNode, sysConfig, userInfo)
+
+	# If it's not a valid request, then we can't act on it
+	# A client not following the protocol is generally immediately disconnected
+	if badRequest:
+		g_logger.debug('Unrecognized message!')
+		return False
+
+	if len(response)>0:
+		trace("Processed '%s' message, replying with msg of size = %d"%(request, len(response)))
+		# send the response to the client
+		g_logger.debug("========================================")
+		logsprint(g_logger.debug,response)
+		g_logger.debug("========================================")
+		try:
+			vsapi.sendMessageOnSocket(client.socket, response)
+		except socket.error, e:
+			return False
+	else:
+		g_logger.debug("Deferring response to client message...")
+		pass
+
+	g_logger.debug("Message processed successfully")
+	return True
+
+def handleWaitXState(client, curTime, ssmState):
+
+	allocId = client.requestParams['allocId']
+	newState = client.requestParams['newState']
+
+	# The allocation may have died/been killed by the time
+	# we come here !
+	if not ssmState["allocations"].has_key(allocId):
+		return """
+		<ssm>
+			<response>
+				<status>1</status>
+				<message>Specified allocation is no longer valid.</message>
+			</response>
+		</ssm>
+		"""
+
+	# Check the state of all those X servers
+	xServerAvail = ssmState["allocations"][allocId]["x_server_avail"]
+
+	matchFailServers = 0
+	serversToWaitOn = client.requestParams['servers']
+	failedServers = []
+	for srv in serversToWaitOn:
+		try:
+			srvUsers = xServerAvail[srv.hashKey()]
+		except IndexError:
+			return """
+			<ssm>
+				<response>
+					<status>1</status>
+					<message>%s is not part of allocation %d</message>
+				</response>
+			</ssm>"""%(srv.hashKey(), allocId)
+	
+		if newState:
+			if client.userInfo['uid'] not in srvUsers:
+				matchFailServers += 1
+				failedServers.append(srv.hashKey())
+		else:
+			if client.userInfo['uid'] in srvUsers:
+				matchFailServers += 1
+				failedServers.append(srv.hashKey())
+
+	# If the state matches now, then we are done
+	if matchFailServers == 0:
+		return """
+		<ssm>
+			<response>
+				<status>0</status>
+				<message>success</message>
+			</response>
+		</ssm>"""
+
+	# if the timeout was has happened, then that's what we'll return
+	if (client.requestParams['endAt'] is not None) and (curTime >= client.requestParams['endAt']):
+		return """
+		<ssm>
+				<response>
+					<status>2</status>
+					<message>Time out. %d of %d servers did not goto the desired state even after %d seconds. These servers are %s</message>
+				</response>
+		</ssm>"""%(matchFailServers, len(serversToWaitOn), client.requestParams['timeout'], failedServers)
+
+	# if we came here, then the request is still active and hasn't timed out
+	return ""
+
+def mainLoop(authType, ms, sysConfig, ssmState, serverSockets, client_info):
+	#
+	# Main Loop : Accept Requests from the outside world and process them
+	#
+	while 1:
+
+		curTime = time.time()
+
+		# Evaluate pending responses
+		for c in client_info:
+			if c.responsePending == False:
+				continue
+
+			response = ""
+			if c.requestParams['message']=='waitXState':
+				response = handleWaitXState(c, curTime, ssmState)
+
+			if len(response)>0:
+				# If we got a response then send it out
+				try:
+					vsapi.sendMessageOnSocket(c.socket, response)
+				except socket.error, e:
+					# if we couldn't send out the message, then the socket
+					# is disconnected at this point
+
+					# close the socket
+					try:
+						c.socket.close()
+					except socket.error, e:
+						pass
+					c.socket = None
+				# and mark this as not waiting
+				c.responsePending = False
+				c.requestParams = None
+			# If the following condition is true, then timeout happened and
+			# message was not handled
+			elif c.requestParams['endAt'] is not None:
+				if (curTime >= c.requestParams['endAt']):
+					raise "Programming error - this should never happen!"
+
+		# Remove any clients which disconnected while we tried to
+		# send out our replies
+		for i in range(len(client_info)):
+			c = client_info[i]
+			if c.socket is None:
+				client_info.pop(i)
+
+		# Exclude sockets that have a response pending
+		endTime = curTime
+		for c in client_info:
+			if c.responsePending:
+				if c.requestParams['endAt'] is not None: # None means infinite timeout
+					t = c.requestParams['endAt']
+					if t > endTime:
+						endTime = t
+			else:
+				client_sockets.append(c.socket)
+
+		client_sockets = map(lambda x:x.socket, client_info)
+
+		if endTime > curTime:
+			selectTimeout = math.ceil(endTime - curTime) # round off higher
+		else:
+			selectTimeout = None
+
+		g_logger.debug('Waiting on %d clients and %d server sockets for timeout = %s'%(len(client_sockets),len(serverSockets), selectTimeout))
+
+		# wait for socket activity with infinite timeout
+		ready_to_read, ready_to_write, in_error = select.select(client_sockets + serverSockets , [], [], selectTimeout)
+
+		# Process existing connections
+		for csock in ready_to_read:
+
+			# Skip over the server sockets - they are handled separately
+			if csock in serverSockets: continue
+
+			# Search through the client information to find who this socket corresponds to
+			client = None
+			for iter in client_info:
+				if csock is iter.socket:
+					client = iter
+
+			if client is None:
+				# How can this case happen ? select says that there is data to be read.
+				#
+				# I'm guess that if there is data coming in, say a client, and it was closed
+				# by a deallocate call, then this case can happen.
+				#
+				# There's not much we can do. The socket is probably close by the time we come here,
+				# so trying to read data from there may not be a good idea either !
+				#
+				# So we ignore this, and just continue with the next socket
+				continue
+	
+			disconnectClient = True # disconnect unless we have success. This simplifies coding !
+
+			# Get a complete message
+			try:
+				data = vsapi.readMessageFromSocket(csock)
+				disconnectClient = False
+			except vsapi.VizError, e:
+				if e.errorCode != vsapi.VizError.NOT_CONNECTED: # not client disconnection ?
+					g_logger.error('Disconnecting client. Reason : errors happened trying to get message : %s'%(str(e)))
+				else:
+					g_logger.debug('Disconnecting client. Reason : Socket disconnected ')
+			except ValueError, e:
+				g_logger.error('Disconnecting client. Reason : errors happened trying to get message : %s'%(str(e)))
+			
+			# Message we get needs to be a complete XML message, else
+			# it is considered invalid. xml.dom.minidom cannot do anything
+			# like Schema validation, so we can't rely on that feature
+			# however, it can and does check for a well formed document.
+			dom = None
+			if not disconnectClient:
+				try:
+					dom = xml.dom.minidom.parseString(data)
+				except xml.parsers.expat.ExpatError, e:
+					g_logger.error("Parser error while parsing client message:")
+					g_logger.error("------------------------------------------")
+					g_logger.error(data)
+					g_logger.error("-----------------------------------")
+					g_logger.error("Parser Error message:")
+					g_logger.error("-----------------------------------")
+					g_logger.error(str(e))
+					g_logger.error("-----------------------------------")
+					disconnectClient = True
+
+			# process message : decode, validate and act upon it.
+			if dom:
+				trace("Processing message from Client. Size = %d bytes"%(len(data)))
+				g_logger.debug('===============================')
+				logsprint(g_logger.debug,data)
+				g_logger.debug('===============================')
+				msgStatus = processMessage(ms, dom, sysConfig, ssmState, client, client_info)
+				if not msgStatus:
+					disconnectClient = True
+			
+			if disconnectClient:
+				# Update the X server state to 0. Note that we don't allow two X server connections
+				# to the same X server
+				if client.isXServer:
+					try:
+						reprAlloc = ssmState["allocations"][client.allocationIdForXServer]
+						reprAlloc["x_server_users"][client.XServerFor.hashKey()].remove(client.userInfo['uid'])
+						if client.serverRunning:
+							reprAlloc["x_server_avail"][client.XServerFor.hashKey()].remove(client.userInfo['uid'])
+						client.serverRunning = False
+					except KeyError, e:
+						# NOTE: this can happen when we've asked the client to exit 
+						# and by the time we detect it exits, the allocation is gone !
+						pass
+					except ValueError, e:
+						pass
+
+				#print 'Removing Client Connection. Number of clients = %d'%(len(client_info))
+				# cleanup allocations if we're supposed to
+				# NOTE: this removes the job with the scheduler as well
+				# as cleans up any X servers, and any other viz setup
+				if client.cleanupOnDisconnect is True:
+					#print 'Disconnect -- allocationsToCleanup = %s'%(client.allocationsToCleanup)
+					# NOTE: we copy allocations to cleanup since removeAllocations
+					# will modify it. Without copying, the for loop won't do its
+					# job.
+					for id in copy.copy(client.allocationsToCleanup):
+						g_logger.debug('Cleaning up allocation %d due to disconnect'%(id))
+						removeAllocation(ssmState, ms, id, client_info)
+
+				# remove the client from the list
+				for si in range(len(client_info)):
+					if client_info[si] is client:
+						client_info.pop(si)
+						break
+				# close the scoket
+				try:
+					client.socket.close()
+				except socket.error, e:
+					pass # the client may have disconnected by now
+				continue
+
+		# Handle new connections
+		for server in filter(lambda x: x in ready_to_read, serverSockets):
+			# accept a connection
+			csock, address = server.accept()
+			g_logger.debug('Accepted a new connection')
+
+			# get the auth message
+			try:
+				msg = vsapi.readMessageFromSocket(csock)
+			except socket.error, e:
+				g_logger.error('Disconnecting client as I am not able to get the auth message')
+				__closeSocket(csock) # kick out client on any failure
+				continue
+			except vsapi.VizError, e:
+				g_logger.error('Disconnecting client. Reason :%s'%(str(e)))
+				__closeSocket(csock) # kick out client on any failure
+				continue
+				
+
+			# Try to get the uid and gid of the unix domain sockets
+			# NOTE: we dont check if the particular socket is a unix domain socket
+			SO_PEERCRED = 17
+			localSocketInfo = csock.getsockopt(socket.SOL_SOCKET, SO_PEERCRED, struct.calcsize('3i'))
+			pid, uid, gid = struct.unpack('3i', localSocketInfo)
+
+			if (uid!=-1): 
+				# getsockopt won't fail on TCP sockets, but would return -1
+				# we use this to detect unix domain sockets
+				message = msg
+				userInfo = {}
+				userInfo['uid'] = uid
+				userInfo['gid'] = gid
+			else:
+				errcode, userInfo, message = vsapi.decode_message_with_auth(authType, msg)
+
+				if errcode != 0:
+					g_logger.error('Disconnecting client as authentication failed')
+					__closeSocket(csock)
+					continue
+
+			#pprint(userInfo)
+
+			# message must be an XML message that describes who is connecting
+			# currently, we have two categories
+			# - client - sends XML as part of its auth packet
+			# - x_server - socket representing an X server. sends no message
+
+			isXServer = False
+
+			if len(message)==0:
+				g_logger.error('Bad protocol from client. Disconnecting.')
+				__closeSocket(csock)
+				continue
+
+			try:
+				dom = xml.dom.minidom.parseString(message)
+			except xml.parsers.expat.ExpatError, e:
+				g_logger.error('Diconnecting socket as identity XML message parsing failed for reason :%s'%(str(e)))
+				__closeSocket(csock)
+				continue
+
+			rootNode = dom.documentElement
+			cleanup = True # Default value for cleanupOnDisconnect
+			if rootNode.nodeName == "client":
+				cleanupNode = domutil.getChildNode(rootNode, 'cleanupOnDisconnect')
+				if cleanupNode is not None:
+					try:
+						cleanup = int(domutil.getValue(cleanupNode))
+						if (cleanup < 0) or (cleanup > 1):
+							raise ValueError, "cleanupOnDisconnect can only have values 0 and 1"
+					except ValueError, e:
+						g_logger.error('Disconnecting client socket - bad value for cleanupOnDisconnect. Reason :%s'%(str(e)))
+						__closeSocket(csock)
+						continue
+					cleanup = bool(cleanup) # convert to boolean
+			elif rootNode.nodeName == "xclient":
+				serverNode = domutil.getChildNode(rootNode, vsapi.Server.rootNodeName)
+				if serverNode is None:
+					g_logger.error('Disconnecting X client for lack of server identification')
+					__closeSocket(csock)
+					continue
+
+				isXServer = True
+				try:
+					whichServer = vsapi.deserializeVizResource(serverNode, [vsapi.Server])
+				except ValueError, e:
+					g_logger.error('Disconnecting X client - failed to get X server details. Reason %s'%(str(e)))
+					__closeSocket(csock)
+					continue
+				if not whichServer.isCompletelyResolvable():
+					g_logger.error('Disconnecting X client - tried connecting as an invalid X server %s'%(str(whichServer)))
+					__closeSocket(csock)
+					continue
+
+				# search for the server in all allocations.
+				searchSuccess = False
+				if ssmState["x_server_config"][whichServer.hashKey()].isShared():
+					idNode = domutil.getChildNode(rootNode, "allocId")
+					if idNode is None:
+						g_logger.error("Disconnecting X client- shared server %s must specify allocId"%(str(whichServer)))
+						__closeSocket(csock)
+						continue
+
+					try:
+						givenAllocId = int(domutil.getValue(idNode))
+					except:
+						g_logger.error("Disconnecting X client - Invalid allocid value or no allocId specified")
+						__closeSocket(csock)
+						continue
+
+					allocIdRange = [ givenAllocId ]
+				else:
+					allocIdRange = ssmState["allocations"]
+
+				try:
+					for allocId in allocIdRange:
+						alloc = ssmState["allocations"][allocId]
+						x_servers = alloc["used_x_servers"]
+						for srv in x_servers:
+							# if we find a match then we are done
+							# FIXME: enforce access rights here !!!
+							# AND/OR remove the scheduler info ?
+							if srv.refersToTheSame(whichServer):
+								searchSuccess = True
+								allocationIdForXServer  = allocId
+								break
+						if searchSuccess:
+							break
+				except KeyError, e:
+					g_logger.error("Disconnecting X client - Invalid allocid value")
+					__closeSocket(csock)
+					continue
+					
+
+				if not searchSuccess:
+					g_logger.error('Disconnecting X client - %s is not allocated yet'%(str(whichServer)))
+					__closeSocket(csock)
+					continue
+
+			else:
+				g_logger.error('Diconnecting client due to bad protocol from client. Root Node Name is %s'%(rootNode.nodeName))
+				__closeSocket(csock)
+				continue
+
+			if isXServer:
+				uidNode = domutil.getChildNode(rootNode, "serverFor")
+				if (uidNode is not None):
+					if (userInfo['uid']!=0):
+						g_logger.error('UID=%d tried to run a server for another user. Only root is allowed to run a server for another user. Disconnecting client.'%(userInfo['uid']))
+						__closeSocket(csock)
+						continue
+					# Override the UID
+					userInfo['uid'] = int(domutil.getValue(uidNode))
+				
+			# Add the client to the list
+			client = ClientInfo()
+			client.socket = csock
+			client.userInfo = userInfo
+			client.responsePending = False
+			client.requestParams = None
+			client.cleanupOnDisconnect = cleanup
+			client.allocationsToCleanup = [] # list of all allocation IDs created in the context of this client. These need to be cleaned up if needed
+			client.isXServer = isXServer
+			if isXServer:
+				client.serverRunning = False
+				client.XServerFor = whichServer
+				client.allocationIdForXServer = allocationIdForXServer
+
+					
+				serverOwners = ssmState["x_server_config"][whichServer.hashKey()].getOwners()
+				existingConnections = ssmState["allocations"][allocationIdForXServer]["x_server_users"][whichServer.hashKey()]
+
+				# Disallow non-users from connecting as X servers. No exceptions for the root user
+				if (userInfo['uid'] not in serverOwners):
+					g_logger.error('Disconnecting X client. User %d not allowed access to this X server %s. Allowed owners are %s'%(userInfo['uid'], whichServer.hashKey(), serverOwners))
+					__closeSocket(csock)
+					continue
+
+				if not ssmState["x_server_config"][whichServer.hashKey()].isShared():
+					if (userInfo['uid']==0) and (len(existingConnections)==1):
+						g_logger.error('Disconnecting X client. Root owner user is not allowed to connect to the X server %s since it already is running'%(whichServer.hashKey()))
+						__closeSocket(csock)
+						continue
+				else:
+					potentialNewOwners = copy.copy(serverOwners)
+					for c in existingConnections:
+						try:
+							potentialNewOwners.remove(c)
+						except:
+							pass
+					if userInfo['uid'] not in potentialNewOwners:
+						g_logger.error('Disconnecting X client. All allowed connections from user %d to X server %s are already made. Cannot allow more'%(userInfo['uid'], whichServer.hashKey()))
+						__closeSocket(csock)
+						continue
+				
+				# Remember that an X server connected for this
+				ssmState["allocations"][allocationIdForXServer]["x_server_users"][whichServer.hashKey()].append(userInfo['uid'])
+			client_info.append(client)
+
+			if isXServer:
+				g_logger.debug('X client connected for %s, allocation id=%d, uid=%d, gid=%d'%(whichServer, allocationIdForXServer, userInfo["uid"], userInfo["gid"]))
+			else:
+				g_logger.debug('Client connected : uid=%d, gid=%d'%(userInfo["uid"], userInfo["gid"]))
+
+#
+# Deamon class code leeched from daemon.py. Public domain code from this link
+#
+# http://www.jejik.com/articles/2007/02/a_simple_unix_linux_daemon_in_python/
+#
+import sys, os, time, atexit
+from signal import SIGTERM 
+
+class Daemon:
+	"""
+	A generic daemon class.
+	
+	Usage: subclass the Daemon class and override the run() method
+	"""
+	def __init__(self, pidfile, stdin='/dev/null', stdout='/dev/null', stderr='/dev/null'):
+		self.stdin = stdin
+		self.stdout = stdout
+		self.stderr = stderr
+		self.pidfile = pidfile
+	
+	def daemonize(self):
+		"""
+		do the UNIX double-fork magic, see Stevens' "Advanced 
+		Programming in the UNIX Environment" for details (ISBN 0201563177)
+		http://www.erlenstar.demon.co.uk/unix/faq_2.html#SEC16
+		"""
+		try: 
+			pid = os.fork() 
+			if pid > 0:
+				# exit first parent
+				sys.exit(0) 
+		except OSError, e: 
+			sys.stderr.write("fork #1 failed: %d (%s)\n" % (e.errno, e.strerror))
+			sys.exit(1)
+	
+		# decouple from parent environment
+		os.chdir("/") 
+		os.setsid() 
+		os.umask(0) 
+	
+		# do second fork
+		try: 
+			pid = os.fork() 
+			if pid > 0:
+				# exit from second parent
+				sys.exit(0) 
+		except OSError, e: 
+			sys.stderr.write("fork #2 failed: %d (%s)\n" % (e.errno, e.strerror))
+			sys.exit(1) 
+	
+		# redirect standard file descriptors
+		sys.stdout.flush()
+		sys.stderr.flush()
+		si = file(self.stdin, 'r')
+		so = file(self.stdout, 'a+')
+		se = file(self.stderr, 'a+', 0)
+		os.dup2(si.fileno(), sys.stdin.fileno())
+		os.dup2(so.fileno(), sys.stdout.fileno())
+		os.dup2(se.fileno(), sys.stderr.fileno())
+	
+		# write pidfile
+		atexit.register(self.delpid)
+		pid = str(os.getpid())
+		file(self.pidfile,'w+').write("%s\n" % pid)
+	
+	def delpid(self):
+		os.remove(self.pidfile)
+
+	def status(self):
+		"""
+		Get the status of the daemon. Running/not running
+		"""
+		pid = self.__getRunningPid()
+		if pid is not None:
+			print "VizStack SSM daemon is running with pid=%d"%(pid)
+		else:
+			print "VizStack SSM daemon is not running"
+
+	def start(self):
+		"""
+		Start the daemon
+		"""
+		pid = self.__getRunningPid()
+		if pid:
+			message = "pidfile %s already exists. Daemon already running?\n"
+			sys.stderr.write(message % self.pidfile)
+			sys.exit(1)
+		
+		# Start the daemon
+		self.daemonize()
+		self.run()
+
+	def __getRunningPid(self):
+		# Check for a pidfile to see if the daemon already runs
+		try:
+			pf = file(self.pidfile,'r')
+			pid = int(pf.read().strip())
+			pf.close()
+		except IOError:
+			pid = None
+		return pid
+
+	def stop(self):
+		"""
+		Stop the daemon
+		"""
+		pid = self.__getRunningPid()
+	
+		if not pid:
+			message = "pidfile %s does not exist. Daemon not running?\n"
+			sys.stderr.write(message % self.pidfile)
+			return # not an error in a restart
+
+		# Try killing the daemon process	
+		try:
+			while 1:
+				os.kill(pid, SIGTERM)
+				time.sleep(0.1)
+		except OSError, err:
+			err = str(err)
+			if err.find("No such process") > 0:
+				if os.path.exists(self.pidfile):
+					os.remove(self.pidfile)
+			else:
+				print str(err)
+				sys.exit(1)
+
+	def restart(self):
+		"""
+		Restart the daemon
+		"""
+		self.stop()
+		self.start()
+
+	def run(self):
+		"""
+		You should override this method when you subclass Daemon. It will be called after the process has been
+		daemonized by start() or restart().
+		"""
+#
+# Script body starts here
+#
+
+if not ((os.getuid()==0) and (os.getgid()==0)):
+	print >> sys.stderr, "The VizStack SSM can only run by the root user."
+	sys.exit(-1)
+
+def ssm_body():
+	global g_node_file, g_rg_file, g_master_file
+	setupLogging()
+
+	g_logger.info('SSM Starting Up')
+	try:
+		g_logger.info('Using these configuration file paths:')
+		g_logger.info('----------------------------------------------------------')
+		g_logger.info('  Master Configuration File         => %s'%(g_master_file))
+		g_logger.info('  Node Configuration File           => %s'%(g_node_file))
+		g_logger.info('  Resource Group Configuration File => %s'%(g_rg_file))
+		g_logger.info('  System Templates Directory        => %s'%(g_system_template_dir))
+		g_logger.info('  Override Templates Directory      => %s'%(g_override_template_dir))
+		g_logger.info('----------------------------------------------------------')
+		sysConfig = vsutil.loadLocalConfig(False, g_master_file, g_node_file, g_rg_file, g_system_template_dir, g_override_template_dir)
+	except vsapi.VizError, e:
+		g_logger.error('Error loading configuration : %s'%(str(e)))
+		sys.exit(1)
+
+	g_logger.info("Resources managed by this SSM are :")
+	g_logger.info("-----------------------------------")
+
+	if not ((len(sysConfig['nodes'])==1) and (sysConfig['nodes'].has_key('localhost'))):
+		# Process displays. Read the EDID files and convert them
+		# to EDID bytes. This ensures that EDID files dont need
+		# to be kept in sync on all nodes
+		for ddName in sysConfig['templates']['display'].keys():
+			thisDD = sysConfig['templates']['display'][ddName]
+
+			edidFileName = thisDD.getEDIDFileName()
+			if edidFileName is None:
+				continue
+
+			try:
+				f = open(edidFileName, 'r')
+				edidBytes = f.read()
+				f.close()
+			except IOError, e:
+				g_logger.error('Error loading EDID file %s. Reason: %s'%(edidFileName, str(e)))
+				sys.exit(1)
+
+			edidBytesArr = array.array('B', edidBytes)
+			edidBytesStr = reduce(lambda x,y: x+y, map(lambda x: '%02x'%(x), edidBytesArr))
+		
+			# Set the EDID bytes	
+			thisDD.setEDIDBytes(edidBytesStr)
+
+			# And clear the filename
+			thisDD.setEDIDFileName(None)
+
+	# create a list of resources to feed that the metascheduler will
+	# manage
+	allResources = []
+	for node in sysConfig['nodes']:
+		nodeInfo = sysConfig['nodes'][node]
+		allResources = allResources + nodeInfo.getResources()
+		g_logger.info("Node %s :"%(node))
+		for line in pformat(nodeInfo.getResources()).split('\n'):
+			g_logger.info(line)
+	g_logger.info('Node weights:')
+	for node in sysConfig['nodes']:
+		nodeInfo = sysConfig['nodes'][node]
+		g_logger.info('  %s => %d'%(node, nodeInfo.getAllocationWeight()))
+	g_logger.info('Defined resource groups:')
+	for rgName in sysConfig['resource_groups'].keys():
+		g_logger.info('    '+rgName)
+	g_logger.info('Defined Display Templates:')
+	for ddName in sysConfig['templates']['display'].keys():
+		g_logger.info('    '+ddName)
+	g_logger.info('Defined GPU Templates:')
+	for gpuName in sysConfig['templates']['gpu'].keys():
+		g_logger.info('    '+gpuName)
+	g_logger.info('Defined Keyboard Templates:')
+	for kbdName in sysConfig['templates']['keyboard'].keys():
+		g_logger.info('    '+kbdName)
+	g_logger.info('Defined Mouse Templates:')
+	for mouseName in sysConfig['templates']['mouse'].keys():
+		g_logger.info('    '+mouseName)
+	g_logger.info("-----------------------------------")
+
+	# Configuration params
+	configHost, configPort, authType = vsapi.getMasterParameters()
+
+	if configHost != "localhost":
+		# check that we are running on the configured host here !
+		if socket.gethostname()!=configHost:
+			g_logger.error("The master has to be run on host '%s', but you are trying to run it on this machine, i.e. '%s'. If this is a multihomed machine, then you need to alter your configuration. "%(configHost, socket.gethostname()))
+			sys.exit(-1)
+
+	if configHost == "localhost":
+		allNodes =  sysConfig['nodes'].keys()
+		if (len(allNodes)>1) or (allNodes[0]!="localhost"):
+			g_logger.error("If the master is on localhost, then only one node 'localhost' is allowed")
+			sys.exit(-1)
+
+	serverSockets = []
+	backlog = 100
+
+	# Create a TCP socket for connections from other machines
+	if configHost != "localhost":
+		port = int(configPort)
+		host = ''
+
+		tcpSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		tcpSock.bind((host,port))
+		tcpSock.listen(backlog)
+		serverSockets.append(tcpSock)
+		
+	# Create a Unix Domain socket to allow direct connections from this machine
+	localSock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+	lsName = vsapi.SSM_UNIX_SOCKET_ADDRESS
+	try:
+		os.remove(lsName)
+	except OSError, e:
+		pass
+
+	oldMask = os.umask(0) # Allow everybody to the socket we'll create next
+	localSock.bind(lsName)
+	os.umask(oldMask) # Restore the old mask
+	localSock.listen(backlog)
+	serverSockets.append(localSock)
+
+	# create a dictionary to map from the resource hash to the resource
+	# itself
+	resDict = {}
+	xDict = {}
+	for res in allResources:
+		resDict[res.hashKey()] = res
+		# State of servers needs to be tracked
+		if isinstance(res, vsapi.Server):
+			xDict[res.hashKey()] = res
+
+		# State of shared servers needs to be tracked too
+		if isinstance(res, vsapi.GPU):
+			if res.isSharable():
+				srv = res.getSharedServer()
+				xDict[srv.hashKey()] = srv
+
+	# Add a high allocation bias to GPUs that are part of tiled displays
+	# This ensures they are allocated last
+	biasWeight = {}
+	for rgName in sysConfig['resource_groups'].keys():
+		rg = sysConfig['resource_groups'][rgName]
+		hobj = rg.getHandlerObject()
+		if isinstance(hobj, vsapi.TiledDisplay):
+			allGPUs = vsapi.extractObjects(vsapi.GPU, rg.getResources())
+			for gpu in allGPUs:
+				if gpu.getAllocationDOF()==0:
+					biasWeight[gpu.hashKey()] = 100000
+	for resKey in biasWeight.keys():
+		try:
+			resDict[resKey].setAllocationBias(biasWeight[resKey])
+			g_logger.info("%s is part of tiled display(s). Setting allocation bias to %d."%(resKey,biasWeight[resKey]))
+		except:
+			# FIXME:
+			# Resource groups may include resources not defined
+			# in the system. This must be treated as an error at
+			# the startup phase.
+			pass
+
+	client_info = []
+	ssmState = {
+		'lastReservationId' : 0,
+		'resource' : resDict,
+		'x_server_config' : xDict,
+		'allocations' : {}
+	}
+
+	
+	# create a metascheduler to manage them
+	nodeList = []
+	for nodeName in sysConfig['nodes']:
+		nodeList.append(sysConfig['nodes'][nodeName])
+	ms = metascheduler.Metascheduler(nodeList, sysConfig['schedulerList'])
+
+	# Enter the mainloop, while being prepared to handle ^C !
+	try:
+		g_logger.info('Starting main loop')
+		mainLoop(authType, ms, sysConfig, ssmState, serverSockets, client_info)
+	except KeyboardInterrupt:
+		g_logger.info('Handling ^C')
+		for line in traceback.format_exc().split('\n'):
+			g_logger.info(line)
+		#traceback.print_exc(file=sys.stdout)
+	except:
+		g_logger.info('Caught unexpected exception; please contact developers with the the log file !')
+		g_logger.info('Stack Trace is ')
+		g_logger.info('---------------')
+		for line in traceback.format_exc().split('\n'):
+			g_logger.info(line)
+		g_logger.info('---------------')
+		#traceback.print_exc(file=sys.stdout)
+
+	# Cleanup all clients connected to us at this point in time
+	for client in client_info:
+		g_logger.info('Removing a client')
+		__closeSocket(client.socket)
+
+	# Remove all allocations that have still remain
+	# destructors will do this on program exit, but doing this
+	# explicitly lets us track things.
+	liveAllocations = ssmState["allocations"].keys()
+	for allocId in liveAllocations:
+		g_logger.info('Cleanup : removing live allocation %d'%(allocId))
+		removeAllocation(ssmState, ms, allocId, [])
+
+	# Close the server socket(s)
+	for s in serverSockets:
+		try:	
+			__closeSocket(s)
+		except socket.error, e:
+			pass
+
+	# And we're done...
+	g_logger.info('SSM exiting...')
+
+def setupRedirect():
+	class redirPrints:
+		def __init__(self, fname):
+			self.f = open(fname,"a+")
+		def write(self, msg):
+			self.f.write(msg)
+			self.f.flush() # NOTE: file contents may be empty without this flush
+		def __fini__(self):
+			self.f.close()
+		def flush(self):
+			self.f.flush()
+	redir = redirPrints('/var/log/vs-ssm.log')
+	sys.stdout = redir
+	sys.stderr = redir
+
+class SSMDaemon(Daemon):
+	def run(self):
+		setupRedirect()
+		ssm_body()
+
+ssm = SSMDaemon("/var/run/vs-ssm.pid")
+
+parser = OptionParser(usage="%s [options] <start|stop|restart|status|nodaemon>")
+devopts = OptionGroup(parser, "Options meant for developer use (development/debugging)")
+devopts.add_option("--node-config", dest="node_config_file", type="string", default=g_node_file, help="The node configuration file. Defaults to %s"%(g_node_file))
+devopts.add_option("--resource-group-config", dest="rg_config_file", type="string", default=g_rg_file, help="The resource group configuration file. Defaults to %s"%(g_rg_file))
+devopts.add_option("--system-templates", dest="system_template_dir", type="string", default=g_system_template_dir, help="Load system templates from this directory. Defaults to %s"%(g_system_template_dir))
+devopts.add_option("--override-templates", dest="override_template_dir", type="string", default=g_override_template_dir, help="Load override templates from this directory. Defaults to %s"%(g_override_template_dir))
+parser.add_option_group(devopts)
+
+(options,args)=parser.parse_args(sys.argv[1:])
+
+if len(args) != 1:
+	print >>sys.stderr, "You need to specify one (and only one) command. One of start, stop, restart, status, nodaemon"
+	parser.print_help()
+	sys.exit(2)
+
+g_node_file = options.node_config_file
+g_rg_file = options.rg_config_file
+g_override_template_dir = options.override_template_dir
+g_system_template_dir = options.system_template_dir
+
+for fname in [g_node_file, g_rg_file, g_override_template_dir, g_system_template_dir]:
+	if not os.access(fname, os.F_OK):
+		print >>sys.stderr, "Invalid Configuration File/Directories specified: %s either does not exist, or can't be accessed."%(fname)
+		sys.exit(2)
+
+cmd = args[0]
+if 'nodaemon' == cmd:
+	ssm_body()
+elif 'start' == cmd:
+	ssm.start()
+elif 'stop' == cmd:
+	ssm.stop()
+elif 'status' == cmd:
+	ssm.status()
+elif 'restart' == cmd:
+	ssm.restart()
+else:
+	print >>sys.stderr, "Unknown command : %s"%(cmd)
+	sys.exit(2)
+
+sys.exit(0)

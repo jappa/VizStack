@@ -1,0 +1,978 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="744.09448819"
+   height="1052.3622047"
+   id="svg2"
+   sodipodi:version="0.32"
+   inkscape:version="0.46"
+   sodipodi:docname="blocks_and_layouts.svg"
+   inkscape:output_extension="org.inkscape.output.svg.inkscape">
+  <defs
+     id="defs4">
+    <marker
+       inkscape:stockid="Arrow1Lend"
+       orient="auto"
+       refY="0.0"
+       refX="0.0"
+       id="Arrow1Lend"
+       style="overflow:visible;">
+      <path
+         id="path3712"
+         d="M 0.0,0.0 L 5.0,-5.0 L -12.5,0.0 L 5.0,5.0 L 0.0,0.0 z "
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1.0pt;marker-start:none;"
+         transform="scale(0.8) rotate(180) translate(12.5,0)" />
+    </marker>
+    <inkscape:perspective
+       sodipodi:type="inkscape:persp3d"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       id="perspective10" />
+    <inkscape:perspective
+       id="perspective2390"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective2403"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       sodipodi:type="inkscape:persp3d" />
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     gridtolerance="10000"
+     guidetolerance="10"
+     objecttolerance="10"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="1.4142136"
+     inkscape:cx="518.52509"
+     inkscape:cy="496.23875"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="2560"
+     inkscape:window-height="1544"
+     inkscape:window-x="-4"
+     inkscape:window-y="-4" />
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <image
+       y="-238.52122"
+       x="279.28439"
+       id="image2392"
+       height="17.584761"
+       width="98.606133"
+       sodipodi:absref="C:\src\vizstack-svn\trunk\doc\fx3500-backbracket-small.png"
+       xlink:href="fx3500-backbracket-small.png"
+       transform="matrix(0,1,-1,0,0,0)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <image
+       y="551.6048"
+       x="20.697439"
+       id="image2405"
+       height="204.09438"
+       width="325.01733"
+       sodipodi:absref="C:\src\vizstack-svn\doc\presentations\Quadro_Plex_2200_D2_med_back.png"
+       xlink:href="C:\src\vizstack-svn\doc\presentations\Quadro_Plex_2200_D2_med_back.png"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="210.15074"
+       y="319.60483"
+       id="text2409"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
+         sodipodi:role="line"
+         id="tspan2411"
+         x="210.15074"
+         y="319.60483">0</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="210.85191"
+       y="353.84409"
+       id="text2417"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
+         sodipodi:role="line"
+         id="tspan2419"
+         x="210.85191"
+         y="353.84409">1</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="168.89861"
+       y="765.84406"
+       id="text2421"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
+         sodipodi:role="line"
+         id="tspan2423"
+         x="168.89861"
+         y="765.84406">A0</tspan></text>
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;marker-start:none;marker-mid:none;marker-end:url(#Arrow1Lend);stroke-opacity:1"
+       d="M 176.19744,753.60482 L 176.19744,693.60482"
+       id="path2425"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:1.18224871px;stroke-linecap:butt;stroke-linejoin:miter;marker-start:none;marker-mid:none;marker-end:url(#Arrow1Lend);stroke-opacity:1"
+       d="M 192.19744,778.5137 L 192.19744,692.69594"
+       id="path6029"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="185.14861"
+       y="796.84406"
+       id="text6031"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
+         sodipodi:role="line"
+         id="tspan6033"
+         x="185.14861"
+         y="796.84406">A1</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="197.83806"
+       y="763.97443"
+       id="text6035"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
+         sodipodi:role="line"
+         id="tspan6037"
+         x="197.83806"
+         y="763.97443">B0</tspan></text>
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;marker-start:none;marker-mid:none;marker-end:url(#Arrow1Lend);stroke-opacity:1"
+       d="M 205.13689,751.73519 L 205.13689,691.73519"
+       id="path6039"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <path
+       style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:1.18224871px;stroke-linecap:butt;stroke-linejoin:miter;marker-start:none;marker-mid:none;marker-end:url(#Arrow1Lend);stroke-opacity:1"
+       d="M 221.13689,776.64407 L 221.13689,690.82631"
+       id="path6041"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="214.08806"
+       y="794.97443"
+       id="text6043"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
+         sodipodi:role="line"
+         id="tspan6045"
+         x="214.08806"
+         y="794.97443">B1</tspan></text>
+    <g
+       id="g6053"
+       transform="translate(-49.802561,-85.257359)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90">
+      <rect
+         y="354.36218"
+         x="362"
+         height="37"
+         width="43"
+         id="rect6047"
+         style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         id="text6049"
+         y="378.60144"
+         x="379.70117"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+         xml:space="preserve"><tspan
+           y="378.60144"
+           x="379.70117"
+           id="tspan6051"
+           sodipodi:role="line">0</tspan></text>
+    </g>
+    <g
+       id="g6094"
+       transform="translate(-150.30256,-10.757359)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90">
+      <g
+         transform="translate(67.5,-0.5)"
+         id="g6058">
+        <rect
+           style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect6060"
+           width="43"
+           height="37"
+           x="362"
+           y="354.36218" />
+        <text
+           xml:space="preserve"
+           style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+           x="379.70117"
+           y="378.60144"
+           id="text6062"><tspan
+             sodipodi:role="line"
+             id="tspan6064"
+             x="379.70117"
+             y="378.60144">0</tspan></text>
+      </g>
+      <g
+         transform="translate(113.14645,-0.5918831)"
+         id="g6066">
+        <rect
+           style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect6068"
+           width="43"
+           height="37"
+           x="362"
+           y="354.36218" />
+        <text
+           xml:space="preserve"
+           style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+           x="379.70117"
+           y="378.60144"
+           id="text6070"><tspan
+             sodipodi:role="line"
+             id="tspan6072"
+             x="379.70117"
+             y="378.60144">1</tspan></text>
+      </g>
+      <rect
+         y="350.36218"
+         x="427"
+         height="43"
+         width="94"
+         id="rect6074"
+         style="opacity:0.98999999;fill:none;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+    </g>
+    <g
+       id="g6105"
+       transform="translate(-151.80256,-47.757359)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90">
+      <g
+         transform="translate(186.5,-5)"
+         id="g6076">
+        <rect
+           style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect6078"
+           width="43"
+           height="37"
+           x="362"
+           y="354.36218" />
+        <text
+           xml:space="preserve"
+           style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+           x="379.70117"
+           y="378.60144"
+           id="text6080"><tspan
+             sodipodi:role="line"
+             id="tspan6082"
+             x="379.70117"
+             y="378.60144">0</tspan></text>
+      </g>
+      <g
+         transform="translate(186.5,34.5)"
+         id="g6084">
+        <rect
+           style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect6086"
+           width="43"
+           height="37"
+           x="362"
+           y="354.36218" />
+        <text
+           xml:space="preserve"
+           style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+           x="379.70117"
+           y="378.60144"
+           id="text6088"><tspan
+             sodipodi:role="line"
+             id="tspan6090"
+             x="379.70117"
+             y="378.60144">1</tspan></text>
+      </g>
+      <rect
+         y="346.94565"
+         x="546.0835"
+         height="81.333023"
+         width="48.333031"
+         id="rect6092"
+         style="opacity:0.98999999;fill:none;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+    </g>
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="305.19745"
+       y="322.10483"
+       id="text6116"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
+         sodipodi:role="line"
+         id="tspan6118"
+         x="305.19745"
+         y="322.10483">1x1 layout</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="299.72186"
+       y="399.65463"
+       id="text6120"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
+         sodipodi:role="line"
+         id="tspan6122"
+         x="299.72186"
+         y="399.65463">2x1 layout</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="392.6994"
+       y="397.15463"
+       id="text6124"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\gpu-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
+         sodipodi:role="line"
+         id="tspan6126"
+         x="392.6994"
+         y="397.15463">1x2 layout</tspan></text>
+    <g
+       id="g6128"
+       transform="translate(-127.30256,177.45504)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90">
+      <g
+         transform="translate(67.5,-0.5)"
+         id="g6130">
+        <rect
+           style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect6132"
+           width="43"
+           height="37"
+           x="362"
+           y="354.36218" />
+        <text
+           xml:space="preserve"
+           style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+           x="379.70117"
+           y="378.60144"
+           id="text6134"><tspan
+             sodipodi:role="line"
+             id="tspan6136"
+             x="379.70117"
+             y="378.60144">A0</tspan></text>
+      </g>
+      <g
+         transform="translate(113.14645,-0.5918831)"
+         id="g6138">
+        <rect
+           style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect6140"
+           width="43"
+           height="37"
+           x="362"
+           y="354.36218" />
+        <text
+           xml:space="preserve"
+           style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+           x="379.70117"
+           y="378.60144"
+           id="text6142"><tspan
+             sodipodi:role="line"
+             id="tspan6144"
+             x="379.70117"
+             y="378.60144">B0</tspan></text>
+      </g>
+      <rect
+         y="350.36218"
+         x="427"
+         height="43"
+         width="94"
+         id="rect6146"
+         style="opacity:0.98999999;fill:none;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+    </g>
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="322.72186"
+       y="587.867"
+       id="text6148"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
+         sodipodi:role="line"
+         id="tspan6150"
+         x="322.72186"
+         y="587.867">2x1 layout</tspan></text>
+    <g
+       id="g6152"
+       transform="translate(-121.91755,157.41331)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90">
+      <g
+         transform="translate(186.5,-5)"
+         id="g6154">
+        <rect
+           style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect6156"
+           width="43"
+           height="37"
+           x="362"
+           y="354.36218" />
+        <text
+           xml:space="preserve"
+           style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+           x="379.70117"
+           y="378.60144"
+           id="text6158"><tspan
+             sodipodi:role="line"
+             id="tspan6160"
+             x="379.70117"
+             y="378.60144">A0</tspan></text>
+      </g>
+      <g
+         transform="translate(186.5,34.5)"
+         id="g6162">
+        <rect
+           style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect6164"
+           width="43"
+           height="37"
+           x="362"
+           y="354.36218" />
+        <text
+           xml:space="preserve"
+           style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+           x="379.70117"
+           y="378.60144"
+           id="text6166"><tspan
+             sodipodi:role="line"
+             id="tspan6168"
+             x="379.70117"
+             y="378.60144">B0</tspan></text>
+      </g>
+      <rect
+         y="346.94565"
+         x="546.0835"
+         height="81.333023"
+         width="48.333031"
+         id="rect6170"
+         style="opacity:0.98999999;fill:none;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+    </g>
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="422.58441"
+       y="602.32526"
+       id="text6172"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
+         sodipodi:role="line"
+         id="tspan6174"
+         x="422.58441"
+         y="602.32526">1x2 layout</tspan></text>
+    <g
+       id="g6178"
+       transform="translate(-61.302561,284.45504)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90">
+      <rect
+         y="354.36218"
+         x="362"
+         height="37"
+         width="43"
+         id="rect6180"
+         style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         id="text6182"
+         y="378.60144"
+         x="379.70117"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+         xml:space="preserve"><tspan
+           y="378.60144"
+           x="379.70117"
+           id="tspan6184"
+           sodipodi:role="line">A0</tspan></text>
+    </g>
+    <g
+       id="g6186"
+       transform="translate(-15.656111,284.36316)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90">
+      <rect
+         y="354.36218"
+         x="362"
+         height="37"
+         width="43"
+         id="rect6188"
+         style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         id="text6190"
+         y="378.60144"
+         x="379.70117"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+         xml:space="preserve"><tspan
+           y="378.60144"
+           x="379.70117"
+           id="tspan6192"
+           sodipodi:role="line">A1</tspan></text>
+    </g>
+    <rect
+       style="opacity:0.98999999;fill:none;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect6194"
+       width="140"
+       height="43.5"
+       x="298.19745"
+       y="635.3172"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="347.22186"
+       y="693.367"
+       id="text6196"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
+         sodipodi:role="line"
+         id="tspan6198"
+         x="347.22186"
+         y="693.367">3x1 layout</tspan></text>
+    <g
+       id="g6209"
+       transform="translate(30.197439,284.24264)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90">
+      <rect
+         y="354.36218"
+         x="362"
+         height="37"
+         width="43"
+         id="rect6211"
+         style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         id="text6213"
+         y="378.60144"
+         x="379.70117"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+         xml:space="preserve"><tspan
+           y="378.60144"
+           x="379.70117"
+           id="tspan6215"
+           sodipodi:role="line">B0</tspan></text>
+    </g>
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="366.22186"
+       y="790.867"
+       id="text6235"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
+         sodipodi:role="line"
+         id="tspan6237"
+         x="366.22186"
+         y="790.867">4x1 layout</tspan></text>
+    <g
+       id="g6255"
+       transform="translate(-220.80256,123.74264)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90">
+      <g
+         transform="translate(160.5,258.2124)"
+         id="g6217">
+        <rect
+           style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect6219"
+           width="43"
+           height="37"
+           x="362"
+           y="354.36218" />
+        <text
+           xml:space="preserve"
+           style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+           x="379.70117"
+           y="378.60144"
+           id="text6221"><tspan
+             sodipodi:role="line"
+             id="tspan6223"
+             x="379.70117"
+             y="378.60144">A0</tspan></text>
+      </g>
+      <g
+         transform="translate(206.14645,258.12052)"
+         id="g6225">
+        <rect
+           style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect6227"
+           width="43"
+           height="37"
+           x="362"
+           y="354.36218" />
+        <text
+           xml:space="preserve"
+           style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+           x="379.70117"
+           y="378.60144"
+           id="text6229"><tspan
+             sodipodi:role="line"
+             id="tspan6231"
+             x="379.70117"
+             y="378.60144">A1</tspan></text>
+      </g>
+      <rect
+         y="609.09009"
+         x="520.0155"
+         height="42.968979"
+         width="184.96898"
+         id="rect6233"
+         style="opacity:0.98999999;fill:none;fill-opacity:1;stroke:#000000;stroke-width:2.0310204;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <g
+         transform="translate(252,258)"
+         id="g6239">
+        <rect
+           style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect6241"
+           width="43"
+           height="37"
+           x="362"
+           y="354.36218" />
+        <text
+           xml:space="preserve"
+           style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+           x="379.70117"
+           y="378.60144"
+           id="text6243"><tspan
+             sodipodi:role="line"
+             id="tspan6245"
+             x="379.70117"
+             y="378.60144">B0</tspan></text>
+      </g>
+      <g
+         transform="translate(296.5,258)"
+         id="g6247">
+        <rect
+           style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+           id="rect6249"
+           width="43"
+           height="37"
+           x="362"
+           y="354.36218" />
+        <text
+           xml:space="preserve"
+           style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+           x="379.70117"
+           y="378.60144"
+           id="text6251"><tspan
+             sodipodi:role="line"
+             id="tspan6253"
+             x="379.70117"
+             y="378.60144">B1</tspan></text>
+      </g>
+    </g>
+    <g
+       id="g6276"
+       transform="translate(130.33245,152.91332)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90">
+      <rect
+         y="354.36218"
+         x="362"
+         height="37"
+         width="43"
+         id="rect6278"
+         style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         id="text6280"
+         y="378.60144"
+         x="379.70117"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+         xml:space="preserve"><tspan
+           y="378.60144"
+           x="379.70117"
+           id="tspan6282"
+           sodipodi:role="line">A0</tspan></text>
+    </g>
+    <g
+       id="g6284"
+       transform="translate(130.33245,192.41332)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90">
+      <rect
+         y="354.36218"
+         x="362"
+         height="37"
+         width="43"
+         id="rect6286"
+         style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         id="text6288"
+         y="378.60144"
+         x="379.70117"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+         xml:space="preserve"><tspan
+           y="378.60144"
+           x="379.70117"
+           id="tspan6290"
+           sodipodi:role="line">B0</tspan></text>
+    </g>
+    <rect
+       style="opacity:0.98999999;fill:none;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect6292"
+       width="91.833031"
+       height="81.083023"
+       x="489.91595"
+       y="504.85898"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="507.33441"
+       y="601.82526"
+       id="text6294"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
+         sodipodi:role="line"
+         id="tspan6296"
+         x="507.33441"
+         y="601.82526">2x2 layout</tspan></text>
+    <g
+       id="g6307"
+       transform="translate(174.19744,152.74264)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90">
+      <rect
+         y="354.36218"
+         x="362"
+         height="37"
+         width="43"
+         id="rect6309"
+         style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         id="text6311"
+         y="378.60144"
+         x="379.70117"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+         xml:space="preserve"><tspan
+           y="378.60144"
+           x="379.70117"
+           id="tspan6313"
+           sodipodi:role="line">A1</tspan></text>
+    </g>
+    <g
+       id="g6315"
+       transform="translate(174.19744,192.49264)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90">
+      <rect
+         y="354.36218"
+         x="362"
+         height="37"
+         width="43"
+         id="rect6317"
+         style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         id="text6319"
+         y="378.60144"
+         x="379.70117"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+         xml:space="preserve"><tspan
+           y="378.60144"
+           x="379.70117"
+           id="tspan6321"
+           sodipodi:role="line">B1</tspan></text>
+    </g>
+    <g
+       id="g6345"
+       transform="translate(157.69743,266.99266)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90">
+      <rect
+         y="354.36218"
+         x="362"
+         height="37"
+         width="43"
+         id="rect6347"
+         style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         id="text6349"
+         y="378.60144"
+         x="379.70117"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+         xml:space="preserve"><tspan
+           y="378.60144"
+           x="379.70117"
+           id="tspan6351"
+           sodipodi:role="line">A0</tspan></text>
+    </g>
+    <g
+       id="g6353"
+       transform="translate(157.69743,305.24266)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90">
+      <rect
+         y="354.36218"
+         x="362"
+         height="37"
+         width="43"
+         id="rect6355"
+         style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         id="text6357"
+         y="378.60144"
+         x="379.70117"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+         xml:space="preserve"><tspan
+           y="378.60144"
+           x="379.70117"
+           id="tspan6359"
+           sodipodi:role="line">A1</tspan></text>
+    </g>
+    <rect
+       style="opacity:0.98999999;fill:none;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect6361"
+       width="48.333031"
+       height="157.58302"
+       x="517.28094"
+       y="618.93829"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90" />
+    <g
+       id="g6372"
+       transform="translate(157.69744,343.74264)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90">
+      <rect
+         y="354.36218"
+         x="362"
+         height="37"
+         width="43"
+         id="rect6374"
+         style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         id="text6376"
+         y="378.60144"
+         x="379.70117"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+         xml:space="preserve"><tspan
+           y="378.60144"
+           x="379.70117"
+           id="tspan6378"
+           sodipodi:role="line">B0</tspan></text>
+    </g>
+    <g
+       id="g6380"
+       transform="translate(157.69744,382.49264)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90">
+      <rect
+         y="354.36218"
+         x="362"
+         height="37"
+         width="43"
+         id="rect6382"
+         style="opacity:0.98999999;fill:#b3b3b3;fill-opacity:1;stroke:none;stroke-width:4;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1" />
+      <text
+         id="text6384"
+         y="378.60144"
+         x="379.70117"
+         style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+         xml:space="preserve"><tspan
+           y="378.60144"
+           x="379.70117"
+           id="tspan6386"
+           sodipodi:role="line">B1</tspan></text>
+    </g>
+    <text
+       xml:space="preserve"
+       style="font-size:12px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="516.29901"
+       y="795.6546"
+       id="text6388"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\qp-block.png"
+       inkscape:export-xdpi="90"
+       inkscape:export-ydpi="90"><tspan
+         sodipodi:role="line"
+         id="tspan6390"
+         x="516.29901"
+         y="795.6546">1x4 layout</tspan></text>
+  </g>
+</svg>

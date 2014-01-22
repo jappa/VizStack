@@ -1,0 +1,43 @@
+<?xml version="1.0" ?>
+
+<serverconfig 
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/serverconfig.xsd" >
+	<hostname>localhost</hostname>
+	<server_number>0</server_number>
+	<server_type>normal</server_type>
+	<keyboard>
+		<index>0</index>
+	</keyboard>
+	<mouse>
+		<index>0</index>
+	</mouse>
+	<framebuffer>
+		<index>0</index>
+		<gpu_combiner>
+			<sli>
+				<index>0</index>
+				<mode>mosaic</mode>
+			</sli>
+		</gpu_combiner>
+		<gpu>
+			<index>0</index>
+			<scanout>
+				<port_index>0</port_index>
+				<display_device>LP2065</display_device>
+			</scanout>
+		</gpu>
+		<gpu>
+			<index>1</index>
+			<scanout>
+				<port_index>0</port_index>
+				<display_device>LP2065</display_device>
+				<area>
+					<x>0</x>
+					<y>1200</y>
+				</area>
+			</scanout>
+		</gpu>
+	</framebuffer>
+</serverconfig>

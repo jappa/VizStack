@@ -1,0 +1,71 @@
+#!/usr/bin/python
+
+# VizStack - A Framework to manage visualization resources
+
+# Copyright (C) 2009-2010 Hewlett-Packard
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+"""
+vs-generate-authfile
+
+Purpose of this script : generate an auth file which can be used to access a specific X server.
+
+The input arguments are :
+1 -> DISPLAY
+2 -> input auth file, passed to vs-X as "-auth"
+3 -> output auth file, typically in /var/run/vizstack.
+
+This script extracts the first MIT-MAGIC-COOKIE-1 from the auth file and 
+creates the output file to access the X server using that.
+"""
+import os
+import sys
+import re
+
+display = sys.argv[1]
+inputFile = sys.argv[2]
+outputFile = sys.argv[3]
+
+def getKey(authFile):
+	cmd = "xauth -n -i -f %s list"%(authFile) # -i => ignore any locks, -n => don't resolve hostnames, etc
+	#print cmd
+
+	f = os.popen(cmd,"r")
+	content = f.readlines()
+	retCode  = f.close()
+	if (retCode is not None) and (retCode != 0):
+		raise "Command Failed"
+	return content[0]
+
+content = getKey(inputFile)
+
+if len(content)==0:
+	print >>sys.stderr, "vs-generate-authfile : No key corresponding to display %s in file %s"%(display, inputFile)
+	sys.exit(-1)
+
+# strip trailing newline
+content = content[:-1]
+
+info = re.split("[ ]+", content)
+
+if info[1]!="MIT-MAGIC-COOKIE-1":
+	print >>sys.stderr, "vs-generate-authfile : Error : This program is capable of handling only MIT-MAGIC-COOKIE-1."
+	sys.exit(-1)
+
+cmd = "xauth -n -f %s add %s %s %s"%(outputFile, display, info[1], info[2]) # -n =>don't resolve hostnames, etc
+ret = os.system(cmd)
+sys.exit(ret)

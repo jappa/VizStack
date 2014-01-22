@@ -1,0 +1,150 @@
+VIZ-PARAVIEW(1)
+===============
+Manjunath Sripadarao <manjunaths@users.sourceforge.net>
+
+
+NAME
+----
+viz-paraview - VizStack script to launch ParaView on tiled displays in sort-first as well as sort-last rendering mode.
+
+SYNOPSIS
+--------
+*viz-paraview* ['OPTIONS']
+
+DESCRIPTION
+-----------
+The viz-paraview script starts a ParaView server.
+ParaView needs to be separately compiled and installed with MPI
+support. The DISPLAY env variable needs to be setup for the GUI to 
+popup on the local screen. If the script is run in the server only
+mode, then pvserver's are started on the remote tiled display and
+the server and port are printed on the command-line.
+In this case there is no need to setup the DISPLAY env variable.
+After the server is started, the client can be run on the users local desktop
+and one can connect to the remote server. Note that the firewall ports
+need to opened on the server to enable this mode of operation. 
+
+The script has 2 modes of operation, Distributed Rendering (DR)
+mode and Tiled Display(TD) mode.
+
+ParaView has a dependency on MPI, so it needs to be compiled with MPI
+support to enable the above scenarios. Also the paths for the MPI
+libraries needs to be setup before running viz-paraview script.
+
+OPTIONS
+-------
+*-h, --help*::
+     show this help message and exit
+
+*-t DISPLAY_TILE, --tiled-display=DISPLAY_TILE*::
+    Render images to the specified tiled display
+
+*-r, --render-servers=NUM_RENDER_GPUS*::
+     The number of GPUs to use for offscreen rendering.
+     By default, shared GPUs are allocated for offscreen rendering.
+
+*-x, --exclusive*::
+     Allocate dedicated GPUs for rendering. This is useful
+     if you intend to do GPU intensive operations like 
+     volume rendering. Applicable only with -r.
+
+*--specific-gpus*::
+    Use this option to allocate specific GPUs. Use the -a
+    option one or more times to specify the GPUs you need. All
+    GPUs are allocated with exclusive access, and will be used
+    for parallel rendering.
+
+*--specific-nodes*::
+    Use this option to allocate all GPUs on specific nodes. Use the  -a
+    option one or more times to specify the nodes you need. All
+    GPUs are allocated with exclusive access, and will be used
+    for parallel rendering.
+
+*-a, --allocate-from*::
+    Allocate a specific GPU/all GPUs on a node (depending on whether 
+    --specific-gpus or --specific-nodes is used). This option can be used 
+    more than once.
+
+*-l, --local*::
+     By default, this scripts starts the ParaView server, but no
+     client. If you want the script to run the ParaView client on
+     the local desktop, then use this option.
+
+*-p, --port=SERVER_PORT*::
+     The port on which to start the ParaView server. By default,
+     a port number is computed depending on the allocated GPUs.
+
+*-c, --connect-to=CLIENT*::
+     Connect to a listening Paraview client. Use this if outgoing 
+     firewall connections are allowed.
+
+*--mpilib=MPILIB*::
+     The MPI library to use. Use the library that the ParaView server 
+     is compiled with. Valid values are 'hpmpi', 'openmpi' and 'mpich'.
+     Defaults to 'openmpi'.
+
+*-m DISPLAY_MODE, --display-mode=DISPLAY_MODE*::
+    The resolution to run the X server at. Valid with -t.
+
+*--no-framelock*::
+     VizStack sets up framelock if this is enabled in the configuration of 
+     the used tiled display.  Framelock provides hardware synchronization of 
+     all the displays in the Tiled Display. If your framelock chain or tiled 
+     display is not setup properly for framelock, then ParaView will not be started. 
+     Use this option if framelock setup fails, but you want to use the tiled 
+     display without framelock.
+
+EXIT STATUS
+-----------
+*0*::
+    Success
+
+*1*::
+    Failure (unable to allocate resources, termination via
+    ^C, any other abnormal termination)
+
+EXAMPLES
+--------
+
+To run ParaView in distributed rendering mode using 4 shared GPUs,
+
+*# viz-paraview -r 4*
+
+This will start a ParaView server with 4 GPUs. You will need to 
+connect to the ParaView server using a ParaView client from your
+desktop.
+
+To run ParaView in tiled display mode and the assuming the name of
+the defined tiled display is 'front-wall'.
+
+*# viz-paraview -t front-wall*
+
+To start the server with a display mode of 1280x1024.
+
+*# viz-paraview -t front-wall -m 1280x1024*
+
+To run ParaView with a local GUI :
+
+*# viz-paraview -t front-wall --local*
+
+To run ParaView on a few known GPUs (note that GPU index starts from
+0)
+
+*# viz-paraview --specific-gpus -a node1/0 -a node2/1 -a node1/1*
+
+AUTHOR
+------
+Manjunath Sripadarao <manjunaths@users.sourceforge.net>
+Shree Kumar <shreekumar@users.sourceforge.net>
+
+RESOURCES
+---------
+VizStack <http://vizstack.sourceforge.net>
+ParaView <http://www.paraview.org>
+
+COPYING
+-------
+Copyright \(C) 2009-2010 Hewlett-Packard. Free use of this software is
+granted under the terms of the GNU General Public License (GPL) version
+2.
+

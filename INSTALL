@@ -1,0 +1,23 @@
+
+Use the native package installation command to install
+the VizStack package.
+
+E.g., on RedHat, SLES, Fedora Core use 'rpm'
+On Ubuntu and Debian use 'dpkg'
+
+VizStack runs well after installation on many distros.
+
+However, I ran into some problems on Ubuntu server.
+This does not install a desktop environment by default,
+so I had to install many needed packages by hand.
+
+Ubuntu Server:
+
+1. xinit
+2. xserver-xorg-input-void (for X server driver "void")
+3. mesa-utils (for glxinfo)
+4. x11-xserver-utils (for xhost)
+5. gdm (for desktop sessions)
+6. xfonts-base : This provides the 'fixed' font needed by TurboVNC server.
+                 If you dont install this, then you will not be able to start
+                 TurboVNC sessions using viz-tvnc.

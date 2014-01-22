@@ -1,0 +1,306 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="744.09448819"
+   height="1052.3622047"
+   id="svg2"
+   sodipodi:version="0.32"
+   inkscape:version="0.46"
+   sodipodi:docname="1x1-resourceGroupConfig.svg"
+   inkscape:output_extension="org.inkscape.output.svg.inkscape">
+  <defs
+     id="defs4">
+    <marker
+       inkscape:stockid="Arrow1Lend"
+       orient="auto"
+       refY="0.0"
+       refX="0.0"
+       id="Arrow1Lend"
+       style="overflow:visible;">
+      <path
+         id="path3298"
+         d="M 0.0,0.0 L 5.0,-5.0 L -12.5,0.0 L 5.0,5.0 L 0.0,0.0 z "
+         style="fill-rule:evenodd;stroke:#000000;stroke-width:1.0pt;marker-start:none;"
+         transform="scale(0.8) rotate(180) translate(12.5,0)" />
+    </marker>
+    <inkscape:perspective
+       sodipodi:type="inkscape:persp3d"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       id="perspective10" />
+    <inkscape:perspective
+       id="perspective2392"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective2405"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective2418"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective2510"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       sodipodi:type="inkscape:persp3d" />
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     gridtolerance="10000"
+     guidetolerance="10"
+     objecttolerance="10"
+     inkscape:pageopacity="1"
+     inkscape:pageshadow="2"
+     inkscape:zoom="1.4142136"
+     inkscape:cx="195.62824"
+     inkscape:cy="707.0938"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="2560"
+     inkscape:window-height="1544"
+     inkscape:window-x="0"
+     inkscape:window-y="22" />
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <image
+       y="463.09613"
+       x="296.77518"
+       id="image2394"
+       height="176.78355"
+       width="209.83211"
+       sodipodi:absref="C:\src\vizstack-svn\doc\presentations\LP3065-front-transparent-screen.png"
+       xlink:href="C:\src\vizstack-svn\doc\presentations\LP3065-front-transparent-screen.png"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\td-single-schematic.png"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968" />
+    <image
+       y="-744.81714"
+       x="348.01648"
+       id="image2420"
+       height="70.5"
+       width="112.27023"
+       sodipodi:absref="C:\src\vizstack-svn\doc\presentations\Quadro_FX5800_bracket_med.png"
+       xlink:href="C:\src\vizstack-svn\doc\presentations\Quadro_FX5800_bracket_med.png"
+       transform="matrix(0,1,-1,0,0,0)" />
+    <text
+       xml:space="preserve"
+       style="font-size:8px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="129.3589"
+       y="211.89624"
+       id="text2424"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\td-single-xml.png"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968"><tspan
+         sodipodi:role="line"
+         id="tspan2426"
+         x="129.3589"
+         y="211.89624"
+         style="font-size:12px">&lt;resourceGroup&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="226.89624"
+         id="tspan2430"
+         style="font-size:12px">  &lt;name&gt;<tspan
+   style="font-size:12px;fill:#ff0000;fill-opacity:1"
+   id="tspan3274">simple</tspan>&lt;/name&gt;             # This tiled display goes by the name &quot;simple&quot;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="241.89624"
+         id="tspan2432"
+         style="font-size:12px">  &lt;handler&gt;<tspan
+   style="fill:#ff0000;fill-opacity:1"
+   id="tspan5150">tiled_display</tspan>&lt;/name&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="256.89624"
+         id="tspan2434"
+         style="font-size:12px">  &lt;handler_params&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="271.89624"
+         id="tspan2454"
+         style="font-size:12px">     block_type=<tspan
+   style="fill:#ff0000;fill-opacity:1"
+   id="tspan5168">&quot;gpu&quot;</tspan>;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="286.89624"
+         id="tspan2444"
+         style="font-size:12px">     num_blocks=<tspan
+   style="fill:#ff0000;fill-opacity:1"
+   id="tspan5118">[1,1]</tspan>;                   # We use 1*1 = 1 GPU </tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="301.89624"
+         id="tspan2436"
+         style="font-size:12px">     block_display_layout=<tspan
+   style="fill:#ff0000;fill-opacity:1"
+   id="tspan5128">[1,1]</tspan>;     # Each GPU drives a single display</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="316.89624"
+         id="tspan2440"
+         style="font-size:12px">     display_device=<tspan
+   style="fill:#ff0000;fill-opacity:1"
+   id="tspan5138">&quot;LP3065&quot;</tspan>;       # Each display is connected to a LP3065 monitor</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="331.89624"
+         id="tspan2450"
+         style="font-size:12px">  &lt;/handler_params&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="346.89624"
+         id="tspan2456"
+         style="font-size:12px">  &lt;resources&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="361.89624"
+         id="tspan2460"
+         style="font-size:12px">     &lt;reslist&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="376.89624"
+         id="tspan3267"
+         style="font-size:12px;fill:#ff0000">       &lt;res&gt;&lt;serverconfig&gt;&lt;hostname&gt;node<tspan
+   style="font-size:12px;fill:#ff0000;fill-opacity:1;stroke:none;stroke-opacity:1"
+   id="tspan3242">1</tspan>&lt;/hostname&gt;&lt;/serverconfig&gt;&lt;/res&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="391.89624"
+         id="tspan3272"
+         style="font-size:12px;fill:#ff0000">       &lt;res&gt;&lt;gpu&gt;&lt;index&gt;0&lt;/index&gt;&lt;/gpu&gt;&lt;/res&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="466.89624"
+         id="tspan2462"
+         style="font-size:12px">     &lt;reslist&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="481.89624"
+         id="tspan2458"
+         style="font-size:12px">  &lt;/resources&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="496.89624"
+         id="tspan2452"
+         style="font-size:12px">&lt;/resourceGroup&gt;</tspan><tspan
+         sodipodi:role="line"
+         x="129.3589"
+         y="511.89624"
+         id="tspan2428"
+         style="font-size:12px" /></text>
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:3.28771138;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect2468"
+       width="452.87631"
+       height="250.11784"
+       x="123.00277"
+       y="198.04008"
+       ry="0.87576503"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\td-single-xml.png"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#000000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect3240"
+       width="4"
+       height="0"
+       x="14.5"
+       y="200.36218" />
+    <image
+       y="-286.66638"
+       x="457.75262"
+       id="image2512"
+       height="55.444813"
+       width="176.95152"
+       sodipodi:absref="C:\src\vizstack-svn\trunk\doc\fx5600-backbracket.png"
+       xlink:href="fx5600-backbracket.png"
+       transform="matrix(0,1,-1,0,0,0)"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\td-single-schematic.png"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#e54500;stroke-width:2.42972565;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect2516"
+       width="22.535686"
+       height="58.598083"
+       x="232.91626"
+       y="493.25995"
+       ry="0"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\td-single-schematic.png"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968" />
+    <rect
+       style="fill:none;fill-opacity:1;stroke:#ff0000;stroke-width:2;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect3288"
+       width="0"
+       height="0"
+       x="367.69562"
+       y="135.24463" />
+    <path
+       style="fill:#00ff00;fill-opacity:1;fill-rule:evenodd;stroke:#e54500;stroke-width:7;stroke-linecap:butt;stroke-linejoin:miter;marker-end:none;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+       d="M 254.55845,519.02347 C 301.9346,519.02347 301.9346,519.02347 301.9346,519.02347"
+       id="path3290"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\td-single-schematic.png"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968" />
+    <path
+       style="fill:#e54500;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 297.0021,509.12398 L 297.0021,532.4585 L 317.50821,520.31696 L 297.0021,509.12398 z"
+       id="path5106"
+       inkscape:export-xdpi="100.08968"
+       inkscape:export-ydpi="100.08968"
+       inkscape:export-filename="C:\src\vizstack-svn\trunk\doc\images\td-single-schematic.png" />
+    <text
+       xml:space="preserve"
+       style="font-size:32px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;font-family:Bitstream Vera Sans"
+       x="130.10765"
+       y="54.634541"
+       id="text2425"><tspan
+         sodipodi:role="line"
+         id="tspan2427"
+         x="130.10765"
+         y="54.634541">Sample 1x1 from a single GPU</tspan></text>
+  </g>
+</svg>

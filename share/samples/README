@@ -1,0 +1,150 @@
+Hello Reader !
+
+This directory (and it's subdirectories) contains samples which illustrate
+the usage of the VizStack API (vsapi henceforth). 
+
+You will need to use vsapi if you have a need to allocate and configure
+visualization resources for applications that are developed by you. You
+would also use vsapi if you wanted to provide yourself (and others) easy
+ways to run applications with specific configurations and parameters. You
+could use vsapi to setup your displays in ways not provided for directly
+by the tools supplied by VizStack.
+
+Note that VizStack comes with scripts for various common activities like
+allocating remote desktops, as well as running popular applications like
+ParaView, Avizo and Ensight. VizStack also provides scripts which illustrate
+how to run applications with popular Free Software libraries like OpenSG,
+and Equalizer. If you are an end user who is interested mainly in using 
+these default scripts, then you may not find the exaples in this directory 
+useful to you.  However, if you are looking to tweak these scripts to 
+achieve configurations not done by them, then you will find the contents
+of this directory very useful.
+
+If you progressed to reading this sentence, then congratulations! And lets
+get started.
+
+Setting up a visualization application (either a commercial/third party or
+open source) can mean a significant amount of work. You may setup serial
+and parallel applications using VizStack. We define "serial" applications
+as applications which user a single GPU, and parallel applications as the
+ones which can use more than one GPU. Note that parallel applications 
+don't necessarily need to be "distributed applications" - i.e. parallel
+applications run on more than one node.
+
+Also, parallel applications tend to use resources in a uniform manner.
+As an example, applications may need to be run on the same model of GPU (e.g.
+ a Quadro FX 5800). Common distributed applications can work with two or more
+GPUs per node on all the nodes where the application runs. If your GPU aware
+application is MPI-enabled, then homogenity across nodes could be an implicit
+requirement. In any case, knowing the requirements OR limitations of your
+application will go a long way in helping you getting things up and running.
+Note that vsapi does not restrict the user to any notions of homgenity in
+terms of configuration. If you have an application that can use heterogeneous 
+GPUs, then you can set it up to run with vsapi. If you have an application 
+that needs one GPU on one node, two on another, and five on a third, then
+ vsapi can arrange for that too.
+
+Generating configuration files needed for an application is an important
+part that should not be overlooked. You may need to exercise particular care
+with distributed applications. Particular applications may need the same 
+configuration files in the same directory structure(s) on all the nodes.
+
+Keep in mind that the vsapi only helps you allocate and configure the 
+environment needed for your application to run. If you do not know how to 
+run your application in the mode that you desire, or generate the required
+configuration file(s), then vsapi cannot help you with those.
+
+vsapi is written in the popular high-level language Python (http://www.python.org).
+Naturally, any programs that need to use vsapi directly need to be written 
+in python.  Python was chosen for its ease of usage and learning. Note that 
+Python is used extensively in VizStack.  The administrative utilities, the
+System State Manager daemon, and the application/library integration
+scripts all are written in python. Significant parts of the SSM use the vsapi,
+and some parts of it help realize functionality exposed in the vsapi. Usage
+of the vsapi in the SSM ensures that the API gets its fair share of 
+testing as well.
+
+vsapi (as does VizStack) strives to enable any user to
+
+    - Allocate visualization resources that are best suited for the users 
+      purposes
+    - Configure the allocated visualization resources in any valid 
+      configuration. Valid configurations need not be regular/homogeneous.
+    - Flag errors as early as possible. We try to generate error
+      messages which are closest to the cause of failure.
+
+From the point of view of the vsapi, a complete system (consisting of one 
+or more nodes with GPUs) consists of the following resources:
+
+    - GPUs. These could be discrete GPUs, or GPUs inside external graphics
+      solutions like QuadroPlex. GPUs may or may not have the ability to
+      drive display devices.
+    - X servers. These can be of two types:
+      - "normal" X servers. These control GPUs
+      - "virtual" X servers. These are virtual servers like TurboVNC, which
+        do not control GPUs
+    - Input Devices
+      - Keyboard
+      - Mouse
+    - SLI bridges (not available at the moment)
+
+These resources are implemented as direct subclasses of a base class for 
+"VizResource".
+
+vsapi also provides for "VizResourceAggregates". These group one or more
+VizResource objects. The "VizNode" class groups resources on a particular 
+node together. The "ResourceGroup" class serves as a placeeholder
+for a generic grouping of resources that may be used in specific ways. E.g.,
+vsapi provides a "TiledDisplay" class that helps setting up a display wall.
+(Note that TiledDisplay is not a derivative of VizResource)
+
+If you are not familar with the way applications access GPUs, then the short
+explanation coming up may help. Applications that need to use GPUs need to
+do so through an "X server".  Linux(and in general Unix) applications 
+look at the DISPLAY environment variable to identify the X server to connect
+to. The application acts as a client, and the X server provides the OpenGL
+and the windowing functionality. X servers typically use TCP sockets to
+communitcate with clients. However, with VizStack, you will run the client on 
+the same node as the X server. If both client and server are on the same node,
+then X uses shared memory for communication. This results in the ability
+to run high performance applications.
+
+The vsapi provides the following functionality to its users'
+    - Query the resources available in this system
+    - Query resource types
+      - what kind/type of GPUs are available, and what the capabilities 
+        of each one is.
+      - what display devices are known to the system, and what are the
+        capabilities of each.
+    - Query which user has allocated what resources on which systems
+    - Allocate resources from the available pool
+    - Free allocated resources when they are no longer needed
+    - Configure allocated X servers/GPUs in most valid configurations
+    - Start X servers so that application can use them
+    - Stop X servers when no longer needed/before application exit.
+
+VizStack controls access to resources via a daemon program called the 
+"System State Manager" (SSM). Applications/scripts that use the vsapi need 
+to first connect to the SSM. vsapi includes functions to connect/disconnect 
+from the SSM. Allocation/configuration/query functionality of the vsapi is
+implemented as messages to the SSM. The SSM allocates resources for users 
+and keeps track of the resources allocated to each user. The SSM also 
+maintains the configuration of X servers/GPUs. It also enforces security. 
+In particular, normal users may not configure X servers belonging to other 
+users, nor deallocate resources reserved by them. Note that the SSM allows 
+querying for any kind of information without restrictions.
+
+Enough talk. The best way to illustrate the usage (and power) of the vsapi 
+is by showing it in action. The subdirectories of this directory are devoted
+to examples of usage of vsapi.
+
+Some of the samples also illustrate error handling techniques. In a scripted Linux
+environment, users have a tendency to interrupt script execution via pressing
+^C. Handling these gracefully is important in some scenarios. VizStack helps
+cleanup in a very useful way : when the SSM detects that a vsapi client has 
+disconnected, then all resources allocated on that connection are freed up.
+
+Robust user input validation and error handling are an important part of 
+writing scripts that can be used repeatedly by end users. We hope that
+the VizStack application integration scripts (viz_*) serve as an example.
+

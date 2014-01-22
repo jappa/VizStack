@@ -1,0 +1,1136 @@
+= VizStack Developer Guide =
+Hewlett Packard <shreekumar@hp.com>
+v1.1-2, April 2010
+
+== ChangeLog ==
+
+=== Release 1.1-2 ===
+
+Initial release of the Developer Guide.
+
+== Introduction ==
+
+VizStack is a framework to run GPU-enabled applications on systems. VizStack works on Linux and nVidia's GPUs. The applicaitions could be rendering applications that use OpenGL, compute applications that use CUDA, or a mix of the two.
+ 
+VizStack can run both serial and parallel applications. Note that VizStack does not help parallelize serial applications. If an application can be setup to run in parallel on multiple GPUs, then VizStack can help with
+
+* setup the GPUs, configure X servers on them if needed
+* start/stop X servers
+* run the application components on the X servers and GPUs.
+
+VizStack typically runs on a cluster of machines, and allows the users to use the GPUs on the cluster effectively. VizStack can also be used on a single node. VizStack does not impose any homogenity requirements on a cluster. Your cluster could have a variety of GPUs:
+
+* nVidia Graphics cards (Quadro and GeForce cards)
+
+* nVidia QuadroPlex D and S series external graphics
+
+* nVidia Tesla C and S series GPUs
+
+To run applications and to use GPUs, you would need some kind of setup. Some examples
+
+* remote desktop sessions : You need to setup the X server's resolution as needed.
+
+* using GPUs that do not drive displays : You need to configure a virtual screen.
+
+* single GPU stereo applications : The X server needs to control a stereo-capable GPU and stereo needs to be enabled.
+
+* using display devices : You need to setup the display to run at a particular resolution and refresh rate. Also, each GPU can be setup to drive one or two display devices. The displays could be rotated physically. You may need to enable stereo one or both displays.
+
+* hardware synchronization of displays : You need to enable framelock on the displays after starting the X servers.
+
+VizStack provides a Python API that can help developers to setup the exact environment an application needs, and then run the application components. Multi-GPU applications typically need generation of configuration files to point to the right GPUs and nodes. Using the Python API, you may write scripts which automate the entire process of running an application such that it generically works on any kind of VizStack system - whether a cluster or a single system.
+
+== The VizStack System ==
+
+=== Resources ===
+
+VizStack manages the resources on a visualization system. VizStack sees the following items as resources :
+
+* GPU : Each such resource corresponds to one GPU present in the system. Note that certain 
+graphics cards contain more than one GPU (e.g. the Quadro FX 4700 X2, Quadro NVS 420).
+
+* X server : Two types of X servers are managed by VizStack
+
+** 'virtual' X servers. These X servers do not manage physical GPUs. The TurboVNC server is a good example
+** 'normal' X servers. These are configured to control GPUs.
+
+* Keyboard : Each such resource represents a physical keyboard connected to a system.
+
+* Mouse : Each such resource represents a physical mouse connected to a system.
+
+* SLI : Each such resource represents an SLI bridge present in the system. There are two types of
+SLI bridges
+** 'normal' : The SLI bridge that you use to connect two GPUs
+** 'quadroplex' : An SLI bridge available internally in a QuadroPlex
+
+Every resource is assigned an 'index', and assigns on a specific node.  The index of a resource
+distinguishes a resource from other resources of a similar type on the node. In the case of an X server,
+the index also corresponds to the display number.
+
+VizStack sees a visualization system as a pool of these resources. Resources are allocated to users
+out of this pool.
+
+=== Application Launcher ===
+
+VizStack typically manages resources on more than one nodes, and lets users run application components
+on the allocated resources. 
+
+It makes sense to run an executable (binary/script) on GPUs and on X servers(and X screens).
+However, these may be from any of the nodes in the visualization system. So, we need a method to
+reach the particular node, and run the executable after setting the environment to point to the X 
+server/screen and/or GPU. To run an X/OpenGL applications, the DISPLAY environment variable needs
+to be set. For CUDA applications, there are no standards w.r.t how to run an application on a
+specific device.
+
+Clusters can be setup to use one/more methods of running jobs, which are very different w.r.t
+the mechanisms that they provide to run jobs:
+
+* Passwordless SSH
+
+* Resource Managers like SLURM
+
+* Batch Schedulers
+
+** Platform Computing's LSF or Lava
+
+** PBSPro from PBSWorks
+
+** SLURM
+
+VizStack is a framework that tries to be very generic and flexible. It aims to be usable in as
+many places as possible.  So, it relies on some abstractions to deal with the differences between
+these mechanisms.
+
+The following application launchers are currently implemented in VizStack:
+
+* SSH : Passwordless SSH setup is needed for this
+
+* SLURM : Nodes under VizStack need to be setup as described in the Admin Guide
+
+* 'local' : This is used in 'standalone' VizStack deployments. The regular fork/exec
+method is used in this method to run aplications.
+
+=== Architecture ===
+
+VizStack's architecture is shown in <<VS_ARCH>>.
+
+[[VS_ARCH]]
+.VizStack Architecture
+image::images/arch.png[]
+
+A VizStack system runs a single daemon on a node designated as the 'master'. This daemon is the 'System State Manager'
+(/opt/vizstack/sbin/vs-ssm). The SSM tracks the dynamic state of the visualization system. The SSM
+maintains a notion of a visualization 'job'. Each job eseentailly consists of one or more resources representing
+a resource allocation for a particular user.
+
+The SSM maintains information about (this isn't a comprehensive list):
+
+* What resources are available in the system as a whole
+* The state of each resource
+** Free
+** Used
+** List of users who have access to this resource. GPUs can be shared with multiple users.
+* List of running jobs. Each job has information about 
+** what resources are allocated to it
+** the user who allocated the job
+** the time at which the job started
+** the script that is running the job (this is a text string)
+* The configuration of each 'normal' X server. This includes information about the X screens
+and GPUs that are used.
+
+The SSM listens on a socket for incoming requests.  Users can allocate resources for their 
+use by connecting to the SSM. Using the connection, they can also setup/modify the configuration 
+of any X server owned by them.
+
+Users typically don't ask for resources directly. Instead, they use scripts written in Python.
+Each of these scripts typically has a specific purpose - e.g., running ParaView or starting a 
+remote desktop session. These scripts use VizStack's Python API to allocate resources needed
+for their purposes. The scripts then configure the allocated X server(s) to use the allocated GPU(s).
+The SSM maintains access control - the script is not permitted to configure the X server with 
+GPU(s) not owned by the user.
+
+Once X servers are setup, they need to be started.  The script cannot start the X server directly.
+Instead, it starts the X server using a wrapper binary, 'vs-X'. This binary is setuid root. When 
+it is run, it connects to the SSM, gets the configuration for the X server, generates a configuration
+file and then starts the X server using this configuration file. The SSM maintains access control
+here as well - a user who does not own a particular X server is not allowed to start that X server.
+
+'vs-X' is run using the application launcher. The script next runs the application components on 
+the X server(s) using the application launcher.
+
+Once the application exits, the X servers are stopped by the script. The script next deallocates
+the job and exits.
+
+==== Compared to a Typical System ====
+
+You might be familiar with X server setup on typical systems. The administrator create configuration
+files in /etc/X11.  Typically, there is only one configuration file 'xorg.conf'. More than one configuration
+file can be created as well.  Each configuration file can have one or more 'layout'. Each layout represents
+what a complete server configuration. In effect, each layout says what GPUs it will use, what screens are
+configured and configuration of each, and what input devices are used. Each layout can be treated as
+an allocation of GPUs.
+
+Non-root users can start X servers with configuration files only from /etc/X11. Thus, they can use GPUs
+in particular ways predetermined by the sustem administrator. Since anybody can start the X server,
+this method does not allow for controlling which GPU can be used by which user. Since the configurations
+are hardcoded, users cannot run servers with the configuration they need.
+
+== Getting Started with VizStack's Python API ==
+
+If you have a VizStack installation, then the environment is already setup for you to
+write your own scripts that use VizStack's Python API.
+
+=== Basics ===
+
+The VizStack API provides an object oriented interface to work with visualization
+resources. You need to import the python module 'vsapi'. Using the vsapi, you can
+
+* Allocate a set of resources constituting a visualization job
+* Free the resources when they are no longer needed
+* Determine what resources are allocated to which jobs.
+* Configure X servers in a way that matches application needs
+** with one or more screens
+** each screen can control one or more GPUs
+** GPUs can be configured to drive display devices configured with VizStack
+** SLI modes, stereo can be setup
+** Optionally, a keyboard and mouse can be used as input devices
+** all resources can be configured independently of each other
+* Start and stop X servers when needed
+** more than one X server can be used on a node
+* Run application components on chosen X servers/screens/GPUs
+* Enable/disable frame lock
+* Query VizStack's system configuration. This allows an application to enumerate 
+all available resources, and determine what resources may be suitable for the application.
+* Query runtime configuration
+
+The following classes in 'vsapi' represent VizStack resources:
+
+* GPU
+* Server
+* Keyboard
+* Mouse
+* SLI
+
+The class 'ResourceAccess' represents a connection to the SSM. It provides the
+methods needed to 
+
+* create/free/kill jobs; each job consists of one or more resources
+* update configuration of X server(s)
+* query the SSM for information
+** running jobs
+** configuration information
+
+The 'allocate' method of a 'ResourceAccess' object allocates resources. An
+'Allocation' object groups all the allocated resources into a job.
+
+Some utility functions are available in the 'vsutil' module (e.g. framelock).
+
+=== Script Loop ===
+
+Every script that uses vsapi to run application has a flow similar to <<SCRIPT_FLOW>>.
+
+[[SCRIPT_FLOW]]
+.Script Flow
+image::images/script-loop.png[]
+
+Each box in the diagram represents a potential loop for a script. Most scripts run an
+application once and exit, so they don't loop.
+
+=== Hello, VizStack ! ===
+
+VizStack is fairly unique in terms in terms of its capabilities. Before we go deeper, it 
+is instructive to have a look the VizStack version of the classic 'hello, world!' program.
+The 'Hello, VizStack!' program has all the steps mentioned in <<SCRIPT_FLOW>>, and runs
+the 'glxinfo' program on a GPU.
+
+[[HELLO_VIZSTACK]]
+.Hello, VizStack!
+[source,python]
+----
+import vsapi
+
+# Connect to the SSM
+ra = vsapi.ResourceAccess() 
+
+# Allocate a GPU and a Server on the same node
+alloc = ra.allocate([ [vsapi.GPU(), vsapi.Server()] ])
+res = alloc.getResources()
+gpu = res[0][0]
+srv = res[0][1]
+
+screen = vsapi.Screen(0)
+
+# Setup the X screen
+if gpu.getAllowNoScanOut():
+	gpu.clearScanouts()
+	screen.setFBProperty('resolution', [1280,1024])
+else:
+	if len(gpu.getScanouts())==0:
+		sc = gpu.getScanoutCaps()
+		gpu.setScanout(0, 'HP LP2065', sc[0][0])
+
+# X screen controls the allocated GPU
+screen.setGPU(gpu)
+
+# Configure the screen on our allocated server
+srv.setScreen(screen)
+
+# Configure X server - this propagates the X server
+# configuration to the SSM
+alloc.setupViz(ra)
+
+# Start X server
+alloc.startViz(ra)
+
+# Run glxinfo on the server
+proc = srv.run(['glxinfo'])
+proc.wait()
+
+# Stop the X servers
+alloc.stopViz(ra)
+
+# Give up the resources we are using
+ra.deallocate(alloc)
+
+# Disconnect from the SSM
+ra.stop()
+----
+
+Phew! That was kind of long for a hello program, wasn't it ? A lot is happening, under
+the covers.
+
+==== Connecting to the SSM ====
+
+Most VizStack scripts need to connect to the SSM. This is done by creating 'ResourceAccess'
+object. The default constructor connects to the SSM automatically.
+
+[source,python]
+----
+ra = vsapi.ResourceAccess()
+----
+
+Under the covers, the constructor finds the information about where the SSM is running from
+the file /etc/vizstack/master_config.xml.
+
+==== Allocating Resources ====
+
+We need to run glxinfo on a GPU. To access the GPU, we would need an X server on the same
+machine as the GPU.
+
+We can allocate these Using the 'allocate' method of the ResourceAccess object.
+
+[source,python]
+----
+alloc = ra.allocate([  [ vsapi.GPU(), vsapi.Server() ] ])
+----
+
+Note that the argument to allocate is a two level list. Resources for each inner list are
+allocated such that they are on the same node. In this case, we are asking for 1 GPU and
+1 Server such that they are on the same node. Note that this syntax allows for requesting
+resources from multiple nodes in a flexible way. Also note that resources from each inner
+list could potentially be allocated on the same node too!
+
+The return value from the allocate call is an 'Allocation' object. If the request fails,
+then a VizError exception would be thrown.
+
+[source,python]
+----
+res = alloc.getResources()
+gpu = res[0][0]
+srv = res[0][1]
+----
+
+The getResources() method returns what resources were allocated. Each allocated resource
+takes the place of the requested resource in the input list. Since the input was a nested
+list, the return value is also nested. Thus 'res[0][0]' corresponds to the GPU, and 
+'res[0][1]' corresponds to the X server.
+
+==== Configuring the X Server ====
+
+Now we have been allocated a GPU and an X server. So what do we do ? Configure the
+X server to use the GPU, of course! 
+
+But hold on a minute, you need an X screen to do that. So, we do that first.
+
+[source,python]
+----
+screen = vsapi.Screen(0)
+----
+
+If you have only a Quadro class GPU, then you may know that these support a mode
+called 'NoScanout'. This mode allows you to setup an X screen with a GPU without
+needed to have a display device connected to the GPU. If your deployment has only
+such GPUs, then the following code fragment would suffice to setup the X screen.
+
+[source,python]
+----
+gpu.clearScanouts()
+screen.setFBProperty('resolution', [1280,1024])
+----
+
+The second line sets up a frame buffer of dimensions 1280x1024.
+The first line removes any display devices the allocated GPU is configured with.
+If the allocated GPU is statically connected to any display devices, then the GPU 
+would have information about what display devices are connected. The hello program
+doesn't need displays, so we clear them explicitly.  
+
+If you have GeForce GPUs, then you need to configure a display device too.
+
+[source,python]
+----
+if len(gpu.getScanouts())==0:
+	sc = gpu.getScanoutCaps()
+	gpu.setScanout(0, 'HP LP2065', sc[0][0])
+----
+
+The first line checks if any displays have been configured. If not, a 'HP LP2065'
+display device is configured on it. This is used here as a generic DFP device.
+
+Finally, we assign this GPU to be controlled by the Screen, and add this screen
+to the X server.
+
+[source,python]
+----
+screen.setGPU(gpu)
+srv.setScreen(screen)
+----
+
+At this point, the local 'srv' object has the desired configuration of the 
+X server. This configuration needs to be propagated to the SSM. The SSM
+maintains the configurations of all the active X servers. If we do not
+propagate the configuration to the SSM, then the X server will not start.
+Doing this is quite simple.
+
+[source,python]
+----
+alloc.setupViz(ra)
+----
+
+==== Starting the X server ====
+
+This is simple too! 
+
+[source,python]
+----
+alloc.startViz(ra)
+----
+
+'startViz' starts all the configurated X servers in the allocation. We
+have only one X server configured, so only this one is started.
+
+The 'startViz' method returns once the X server has been started and
+available. At this point, we are ready to run any X/OpenGL application
+on the server.
+
+==== Running the Application ====
+
+For this sample, we just need to run 'glxgears'. 
+
+[source,python]
+----
+proc = srv.run(['glxinfo'])
+proc.wait()
+----
+
+In the first line, we run glxinfo on our server. The 'run' method
+uses the underlying application launcher to run the 'glxinfo' command.
+The DISPLAY environment variable is set to our server prior to running the 
+app, so it runs on that X server, and hence on the allocated GPU.
+
+The 'wait' method returns when the process exits.  We have accomplished 
+our task. All steps after this are about cleanup.
+
+==== Stopping X servers ====
+
+Again, we use a single method that stops all running X servers.
+
+[source,python]
+----
+alloc.stopViz(ra)
+----
+
+==== Freeing Resources ====
+
+Again, a one liner
+
+[source,python]
+----
+ra.deallocate(alloc)
+----
+
+==== Disconnecting from the SSM ====
+
+Another one liner
+
+[source,python]
+----
+ra.stop()
+----
+
+== Learning vsapi by Example ==
+
+'vsapi' can be used to automate several tasks. This chapter will focus on using the vsapi
+to achieve specific tasks. Along the way, we will learn some of the useful concepts.
+
+Let's say you have successfully installed a cluster, and verified that it is in a working
+state. At this point, you might want to measure what performance you can get from the 
+various GPUs on the system.
+
+=== Benchmarking using SPECViewPerf ===
+
+SPECViewPerf (available from http://www.spec.org/) is a popular benchmark for measuring the 
+graphics performance of a GPU. 
+
+[NOTE]
+=======================================================================================
+The current version of SPECViewPerf, version 10, fails to finish on many linux systems.
+So, we will use SPECViewPerf version 9 in this example. 
+=======================================================================================
+
+You can download SPECViewPerf for Linux as a .tar.gz file. The typical steps to run the 
+benchmark are
+----
+$ tar xvzf SPECViewPerf9.0.3.tar.gz
+$ cd SPECViewPerf9.0
+$ cd src
+$ ./Configure  # builds SPECViewPerf on this machine
+$ cd ..
+$ ./Run_All.csh
+----
+
+You will notice that SPECViewPerf takes about half an hour to complete for a single GPU.
+In your cluster, you will have many nodes. And each of these could have many GPUs.
+You could manually run SPECViewPerf on every node and GPU. This would be a rather 
+cumbersome process. When end-users use the cluster, the cluster might be completely utilized.
+To reflect this, you need to measure performance of all the GPUs simultaneously.
+After you run all the benchmarks simultaneously, then you also need to collate the 
+results. 
+
+The 'vsapi' can make this tedious and difficult looking task quite simple. Here is an
+outline of how we could finish this task:
+
+* Allocate all GPUs in the system as a job
+* Configure separate X servers for each GPU
+* Run SPECViewPerf in parallel on all the X servers
+* Collect the results
+
+The source code for this is included in the VizStack distribution. Please lookup the
+script /opt/vizstack/share/samples/benchmarking/run-specviewperf9-all-gpus.py for the
+complete source. The important parts of this script are explained here.
+
+The first step of the script, obviously, is connecting to the SSM.
+
+[source,python]
+----
+ra = vsapi.ResourceAccess()
+----
+
+==== Enumerating Resources ====
+
+To allocate all the GPUs in the system, you need to know what GPUs exist. You can
+get the list of all available GPU resources from the SSM using a single line of
+code !
+
+[source,python]
+----
+allGPUs = ra.queryResources(vsapi.GPU())
+----
+
+allGPUs now has a list of vsapi.GPU() objects, with each of them having complete
+information about the GPU: the index of the GPU, the node where the GPU is available,
+the type of the GPU, and other details like the capabilities of the GPU, what 
+display devices are connected to it, the PCI id of the GPU on the bus, etc.
+
+The 'queryResources' method looks simple enough. It is quite powerful, though.
+To get all GPUs of type 'Quadro FX 5800' GPUs in the system, you would use
+
+[source,python]
+----
+gpuList = ra.queryResources(vsapi.GPU(model='Quadro FX 5800'))
+----
+
+To find all the GPUs on a particular node, you _could_ use
+
+[source,python]
+----
+gpuList = ra.queryResources(vsapi.GPU(hostName='node1'))
+----
+
+To determine which GPUs in the system could drive display devices, you would use
+
+[source,python]
+----
+gpuList = ra.queryResources(vsapi.GPU(useScanOut=True))
+----
+
+==== Allocating all GPUs ====
+
+Ok, enough of the diversions. We know what GPUs exist in the system now, so we need to
+allocate them next. Allocating just the GPUs is not sufficient. SPECViewPerf is
+an X/OpenGL application. We need to allocate one X server to control a GPU each.
+
+To this end, we build a list representing the resources we need, and invoke
+'allocate'.
+
+[source,python]
+----
+allocList = []
+for gpu in allGPUs:
+	allocList.append([vsapi.Server(), gpu])
+alloc = ra.allocate(allocList)
+----
+
+Remember from the hello sample that 'allocate' can take a two-level nested list.
+The resources in the inner list are allocated from the same node. Each GPU in our
+list has information about which node it resides on, so the X server will also be
+allocated from the same node.
+
+If the allocate call succeeds, then we will have control over all the GPUs in the
+system (quite powerful, huh?) and X servers for each of them. The next logical step
+is to setup the X server to control the corresponding GPU. The code needed to do
+this is exactly similar to the hello program, except we do it in a loop now
+
+[source,python]
+----
+res = alloc.getResources()
+srvList = []
+gpuList = []
+gpuNames = []
+gpuResults = {}
+print 'Running SPECViewPerf 9 in parallel on %d GPUs'%(len(allGPUs))
+for srv,gpu in res:
+	name = '%s/GPU-%d'%(gpu.getHostName(), gpu.getIndex())
+	gpuResults[name] = []
+	gpuNames.append(name)
+	print '\t%s'%(name)
+	srvList.append(srv)
+	gpuList.append(gpu)
+
+	# Create a screen
+	screen = vsapi.Screen(0)
+	# Setup the X screen
+	if gpu.getAllowNoScanOut():
+		gpu.clearScanouts()
+		screen.setFBProperty('resolution', [1280,1024])
+	else:
+		if len(gpu.getScanouts())==0:
+			sc = gpu.getScanoutCaps()
+			gpu.setScanout(0, 'HP LP2065', sc[0][0])
+	# X screen controls the allocated GPU
+	screen.setGPU(gpu)
+	# Configure the screen on our allocated server
+	srv.addScreen(screen)
+----
+
+==== Starting X Servers ====
+
+At this point, the servers are setup. We need to propagate the X server
+configuration to the SSM and start them. The 'startViz' call starts all
+the configured X servers. It returns when all of them are running and
+accessible.
+
+[source,python]
+----
+# Configure all X servers
+alloc.setupViz(ra)
+
+# Start all X server, all GPUs are reachable now
+print 'Starting all X servers...'
+alloc.startViz(ra)
+----
+
+==== Running the Application ====
+
+At this point, all the GPUs are usable - one per X server. So, we run
+one instance of SPECViewPerf on each X server.
+
+[source,python]
+----
+allProcs = []
+objectsToMonitor = []
+
+# Run SPECViewPerf on all GPUs - one per server
+print 'Starting Benchmark on ALL GPUs'
+for srv,gpu in res:
+	proc = srv.run(['/opt/vizstack/share/samples/benchmarking/helper-specviewperf9-each-gpu.sh', spvPath, str(gpu.getIndex())], outFile=subprocess.PIPE)
+	objectsToMonitor.append(proc.proc.stdout)
+	allProcs.append(proc)
+----
+
+Observe the arguments to the 'run' method carefully. We set 'outFile' to 'subprocess.PIPE'. This 
+ensures that we can get the output of SPECViewPerf.
+
+[NOTE]
+===========================================================================================
+VizStack uses the python module subprocess.Popen to run application components and X server.
+Note how closely the arguments of the run command match the arguments of subprocess.Popen.
+===========================================================================================
+
+We don't run SPECViewPerf directly. Instead, we use a helper script to achieve this. The 'Run_All.csh'
+script expects to be run with the working directory set to the SPECViewPerf directory.  This is easier 
+done in a script.
+
+There is a more important reason to use the helper script too. The 'Run_All.csh' script, and its helper
+scripts create log files with results in their own directories. This could cause a problem when 
+running multiple instances of the scripts. We work around this in the helper script. The helper script
+makes a copy of the SPECViewPerf directory for every GPU. It then invokes the scripts from the directory
+specific to the GPU. This solves the problem at the expense of requiring a lot of extra disk space.
+
+[source,shell]
+----
+BASEDIR=$1
+GPU=$2
+NEWDIR=/tmp/SPV9-$GPU
+rm -rf $NEWDIR # <1>
+echo "Copying SPECViewPerf9 directory for this GPU"
+cp -r $BASEDIR $NEWDIR # <2>
+cd $NEWDIR 
+./Run_All.csh 2>/dev/null # <3>
+----
+
+<1> Erase the existing directory for this GPU.
+<2> Copy SPECViewPerf into the new directory for this GPU.
+<3> Run SPECViewPerf, suppressing error messages. 
+
+Once the python loop finishes, the benchmark will be running on all
+the X servers, and hence all the GPUs. 'Run_All.csh' prints out
+messages about what tests it runs, as well as the summary of results
+at the end. 
+
+[source,python]
+----
+gpuNamesCopy = copy.deepcopy(gpuNames)
+while len(objectsToMonitor)>0:
+	fileToRead, unused1, unused2 = select.select(objectsToMonitor, [], [])
+	for f in fileToRead:
+		s = f.readline()
+		idx = objectsToMonitor.index(f)
+		if len(s)==0:
+			objectsToMonitor.pop(idx)
+			gpuNamesCopy.pop(idx)
+		else:
+			gpuResults[gpuNamesCopy[idx]].append(s)
+			print '%s: %s'%(gpuNamesCopy[idx],s),
+----
+
+We use a select loop to grab the output of all the scripts. The prints include
+the final results as well. These are stored in a dictionary, and also printed 
+out. Printing out information as it comes in reassures the user that something
+is running. Half an hour is a lot of time to wait !  When this loop finishes, 
+all the running instances of SPECViewPerf would have exited. We next wait for 
+them to exit.
+
+[source,python]
+----
+# Wait for all processes to finish
+for proc in allProcs:
+	proc.wait()
+----
+
+We have all the results now; so we cleanly print them out. The benchmark results
+for each GPU form the last 6 lines of the output of the helper script.
+
+[source,python]
+----
+# Show a summary of the results
+print
+print
+print '============================'
+print 'SPECViewPerf9 Results'
+print '============================'
+for idx in range(len(gpuList)):
+	gpu = gpuList[idx]
+	print
+	print 'GPU  : ',gpuNames[idx]
+	print 'Type : ',gpu.getType()
+	print 'BusID: ',gpu.getBusId()
+	print
+	for line in gpuResults[gpuNames[idx]][-6:]:
+		print line,
+	print
+----
+
+==== Cleanup ====
+
+We are done at this point in time. We just need to stop the X servers, give up the
+resources and exit.
+
+[source,python]
+----
+# Stop the X servers
+print 'Stopping all X servers...'
+alloc.stopViz(ra)
+
+# Give up the resources we are using
+ra.deallocate(alloc)
+
+# Disconnect from the SSM
+ra.stop()
+----
+
+==== Sample Run ====
+
+The script may be used on both a cluster, as well as on a single machine (this
+is typical of most VizStack python scripts).
+
+The following output was obtained when run on a standalone VizStack
+configuration (i.e. single node).
+
+[source,shell]
+----
+[shree@servergfx shree]$ /opt/vizstack/share/samples/benchmarking/run-specviewperf9-all-gpus.py ~/SPECViewperf9.0
+Running SPECViewPerf 9 in parallel on 2 GPUs
+        localhost/GPU-0
+        localhost/GPU-1
+Starting all X servers...
+Starting Benchmark on ALL GPUs
+localhost/GPU-1: Copying SPECViewPerf9 directory for this GPU
+localhost/GPU-0: Copying SPECViewPerf9 directory for this GPU
+localhost/GPU-1: Running: 3dsmax-04.csh
+localhost/GPU-0: Running: 3dsmax-04.csh
+localhost/GPU-0: Running: catia.csh
+localhost/GPU-1: Running: catia.csh
+localhost/GPU-1: Running: Ensight-03.sh
+localhost/GPU-0: Running: Ensight-03.sh
+localhost/GPU-1: Running: light-08.csh
+localhost/GPU-0: Running: light-08.csh
+localhost/GPU-1: Running: maya-02.csh
+localhost/GPU-0: Running: maya-02.csh
+localhost/GPU-1: Running: proe-04.csh
+localhost/GPU-0: Running: proe-04.csh
+localhost/GPU-1: Running: suzuki-engine
+localhost/GPU-0: Running: suzuki-engine
+localhost/GPU-1: Running: ugnx-01.csh
+localhost/GPU-0: Running: ugnx-01.csh
+localhost/GPU-1: Running: tcvis-01.csh
+localhost/GPU-0: Running: tcvis-01.csh
+localhost/GPU-1: Run All Summary
+localhost/GPU-1: 3dsmax-04 Weighted Geometric Mean =   36.48
+localhost/GPU-1: catia-02 Weighted Geometric Mean =   40.58
+localhost/GPU-1: ensight-03 Weighted Geometric Mean =   46.05
+localhost/GPU-1: light-08 Weighted Geometric Mean =   28.40
+localhost/GPU-1: maya-02 Weighted Geometric Mean =   177.1
+localhost/GPU-1: proe-04 Weighted Geometric Mean =   29.18
+localhost/GPU-1: sw-01 Weighted Geometric Mean =   48.36
+localhost/GPU-1: ugnx-01 Weighted Geometric Mean =   39.28
+localhost/GPU-1: tcvis-01 Weighted Geometric Mean =   35.95
+localhost/GPU-0: Run All Summary
+localhost/GPU-0: 3dsmax-04 Weighted Geometric Mean =   36.05
+localhost/GPU-0: catia-02 Weighted Geometric Mean =   38.00
+localhost/GPU-0: ensight-03 Weighted Geometric Mean =   44.45
+localhost/GPU-0: light-08 Weighted Geometric Mean =   29.55
+localhost/GPU-0: maya-02 Weighted Geometric Mean =   171.8
+localhost/GPU-0: proe-04 Weighted Geometric Mean =   26.07
+localhost/GPU-0: sw-01 Weighted Geometric Mean =   41.47
+localhost/GPU-0: ugnx-01 Weighted Geometric Mean =   39.28
+localhost/GPU-0: tcvis-01 Weighted Geometric Mean =   33.97
+
+
+============================
+SPECViewPerf9 Results
+============================
+
+GPU  :  localhost/GPU-0
+Type :  Quadro FX 5800
+BusID:  PCI:65:0:0
+
+3dsmax-04 Weighted Geometric Mean =   36.05
+catia-02 Weighted Geometric Mean =   38.00
+ensight-03 Weighted Geometric Mean =   44.45
+light-08 Weighted Geometric Mean =   29.55
+maya-02 Weighted Geometric Mean =   171.8
+proe-04 Weighted Geometric Mean =   26.07
+sw-01 Weighted Geometric Mean =   41.47
+ugnx-01 Weighted Geometric Mean =   39.28
+tcvis-01 Weighted Geometric Mean =   33.97
+
+
+GPU  :  localhost/GPU-1
+Type :  Quadro FX 5800
+BusID:  PCI:129:0:0
+
+3dsmax-04 Weighted Geometric Mean =   36.48
+catia-02 Weighted Geometric Mean =   40.58
+ensight-03 Weighted Geometric Mean =   46.05
+light-08 Weighted Geometric Mean =   28.40
+maya-02 Weighted Geometric Mean =   177.1
+proe-04 Weighted Geometric Mean =   29.18
+sw-01 Weighted Geometric Mean =   48.36
+ugnx-01 Weighted Geometric Mean =   39.28
+tcvis-01 Weighted Geometric Mean =   35.95
+
+Stopping all X servers...
+[shree@servergfx shree]$
+----
+
+=== Benchmarking using the CUDA Bandwidth Test ===
+
+CUDA is nVidia's architecture for GPU Computing. You may download the GPU Computing
+SDK and CUDA Toolkit from nVidia's website (http://developer.nvidia.com/object/cuda_download.html).
+
+This SDK includes a test program called the 'bandwidthTest'. bandwidthTest lets
+one measure the speed of uploads from system memory to the GPU, as well as the
+download speed from the GPU to system memory. The results of the bandwidthTest
+is an important indicator of bus/system performance.
+
+A typical session with bandwidthTest might look like
+
+[source,shell]
+----
+[shree@servergfx ~]$ ~/NVIDIA_GPU_Computing_SDK/C/bin/linux/release/bandwidthTest --memory=pinned
+[bandwidthTest]
+/home/shree/NVIDIA_GPU_Computing_SDK/C/bin/linux/release/bandwidthTest
+Starting...
+
+Running on...
+
+ Device 0: Quadro FX 5800
+ Quick Mode
+
+ Host to Device Bandwidth, 1 Device(s), Pinned memory, Write-Combined Memory
+Enabled
+   Transfer Size (Bytes)        Bandwidth(MB/s)
+   33554432             1896.7
+
+ Device to Host Bandwidth, 1 Device(s), Pinned memory, Write-Combined Memory
+Enabled
+   Transfer Size (Bytes)        Bandwidth(MB/s)
+   33554432             2872.4
+
+ Device to Device Bandwidth, 1 Device(s)
+   Transfer Size (Bytes)        Bandwidth(MB/s)
+   33554432             72546.6
+
+
+[bandwidthTest] - Test results:
+PASSED
+
+
+Press <Enter> to Quit...
+----
+
+To benchmark the cluster, you may want to run 'bandwidthTest' on every GPU 
+at the same time. You would want to collect and collate the results. This can
+be easily done using the 'vsapi', as follows:
+
+* Allocate all GPUs in the system as a job
+* Run 'bandwidthTest' on each GPU in parallel
+* Collect and display the results
+
+Applications that use the CUDA API do not need an X server to access the GPU,
+and so there is no need to start an X server on each GPU.  When you want to run 
+CUDA applications with VizStack, it is sufficient to allocate just GPUs.
+
+The source code for this is included in the VizStack distribution. Please lookup the
+script /opt/vizstack/share/samples/benchmarking/run-cudabandwidth-all-gpus.py for the
+complete source. The important parts of this script are explained here.
+
+The first step of the script, again, is connecting to the SSM.
+
+[source,python]
+----
+ra = vsapi.ResourceAccess()
+----
+
+==== Enumerating Resources ====
+
+To allocate all the GPUs in the system, you need to know what GPUs exist. You can
+get the list of all available GPU resources from the SSM using a single line of
+code !
+
+[source,python]
+----
+allGPUs = ra.queryResources(vsapi.GPU())
+----
+
+==== Allocating all GPUs ====
+
+We have the list of GPUs that we want, so we just allocate them in one step...
+
+[source,python]
+----
+# Allocate all of them !
+alloc = ra.allocate(allGPUs)
+allocGPU = alloc.getResources()
+----
+
+==== Running the Application ====
+
+At this point, all the GPUs are usable. So, we run one instance of 'bandwidthTest'
+on each X.
+
+[source,python]
+----
+gpuNames = []
+gpuResults = {}
+allProcs = []
+objectsToMonitor = []
+# Start the bandwidth test. These finish pretty fast!
+print 'Running CUDA Bandwidth Test on these GPUs'
+for gpu in allocGPU:
+	name = '%s/GPU-%d'%(gpu.getHostName(), gpu.getIndex())
+	gpuResults[name] = []
+	gpuNames.append(name)
+	print '\t%s (%s)'%(name, gpu.getType())
+	proc = gpu.run(['/opt/vizstack/share/samples/benchmarking/helper-bandwidthTest.sh', sdkpath, '--memory=pinned'], outFile=subprocess.PIPE)
+	objectsToMonitor.append(proc.proc.stdout)
+	allProcs.append(proc)
+----
+
+Observe the arguments to the 'run' method carefully. We set 'outFile' to 'subprocess.PIPE'. This 
+ensures that we can get the output of 'bandwidthTest'.
+
+[NOTE]
+===========================================================================================
+VizStack uses the python module subprocess.Popen to run application components and X server.
+Note how closely the arguments of the run command match the arguments of subprocess.Popen.
+===========================================================================================
+
+We don't run 'bandwidthTest' directly. Instead, we use a helper script to achieve this.
+This lets us do things like setup any needed environment variables, process the output
+of the scripts(we don't do this in this example), etc
+
+[source,shell]
+----
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda/lib64
+APPPATH=$1/C/bin/linux/release
+shift
+ARGS=$*
+
+# Run bandwidthTest
+echo | $APPPATH/bandwidthTest --device=$GPU_INDEX $ARGS #<1>
+----
+
+<1> bandwidthTest has an annoying property : it expects the user to
+press enter at the end of the test. We redirect input from 'echo' to
+make the program exit at the end.
+
+Applications that use X/OpenGL rely on the DISPLAY environment variable to
+tell them which X server (and hence GPU) to use. There are no
+such standards for CUDA applications. 'bandwidthTest' accepts a command line
+parameter '--device'; we can use this to ensure that it runs on the right GPU.
+The 'run' method of a GPU object sets the GPU_INDEX environment variable to
+the point to the GPU.
+
+Once the python loop finishes, the benchmark will be running on all
+the GPUs.  'bandwidthTest' prints its results on the standard output.
+
+[source,python]
+----
+# Leech program outputs
+gpuNamesCopy = copy.deepcopy(gpuNames)
+while len(objectsToMonitor)>0:
+	fileToRead, unused1, unused2 = select.select(objectsToMonitor, [], [])
+	for f in fileToRead:
+		s = f.readline()
+		idx = objectsToMonitor.index(f)
+		if len(s)==0:
+			objectsToMonitor.pop(idx)
+			gpuNamesCopy.pop(idx)
+		else:
+			gpuResults[gpuNamesCopy[idx]].append(s)
+			#print '%s: %s'%(gpuNamesCopy[idx],s),
+----
+
+We use a select loop to grab the output of all the scripts. The prints include
+the final results. These are stored in a dictionary.  When this loop finishes, 
+all the running instances of 'bandwidthTest' would have exited. We next wait for 
+them to exit.
+
+[source,python]
+----
+# Wait for all processes to finish
+for proc in allProcs:
+	proc.wait()
+----
+
+We have all the results now; so we cleanly print them out. The benchmark results
+for each GPU are in the middle of the output. We print them and ignore the other
+lines.
+
+[source,python]
+----
+print
+print '============================'
+print 'CUDA Bandwidth Test Results'
+print '============================'
+for idx in range(len(allocGPU)):
+	gpu = allocGPU[idx]
+	print
+	print ' GPU     :',gpuNames[idx]
+	for line in gpuResults[gpuNames[idx]][5:-8]: # The range removes the extra prints
+		print line,
+	print
+----
+
+==== Cleanup ====
+
+We are done at this point in time. We just need to give up the GPUs and exit.
+
+[source,python]
+----
+# Give up the resources we are using
+ra.deallocate(alloc)
+
+# Disconnect from the SSM
+ra.stop()
+----
+
+==== Sample Run ====
+
+The script may be used on both a cluster, as well as on a single machine (this
+is typical of most VizStack python scripts).
+
+The following output was obtained when run on a standalone VizStack
+configuration (i.e. single node).
+
+[source,shell]
+----
+[shree@servergfx ~]$ /opt/vizstack/share/samples/benchmarking/run-cudabandwidth-all-gpus.py ~/NVIDIA_GPU_Computing_SDK/
+Running CUDA Bandwidth Test on these GPUs
+        localhost/GPU-0 (Quadro FX 5800)
+        localhost/GPU-1 (Quadro FX 5800)
+
+============================
+CUDA Bandwidth Test Results
+============================
+
+ GPU     : localhost/GPU-0
+ Device 0: Quadro FX 5800
+ Quick Mode
+
+ Host to Device Bandwidth, 1 Device(s), Pinned memory, Write-Combined Memory
+Enabled
+   Transfer Size (Bytes)        Bandwidth(MB/s)
+   33554432             1896.2
+
+ Device to Host Bandwidth, 1 Device(s), Pinned memory, Write-Combined Memory
+Enabled
+   Transfer Size (Bytes)        Bandwidth(MB/s)
+   33554432             2075.5
+
+ Device to Device Bandwidth, 1 Device(s)
+   Transfer Size (Bytes)        Bandwidth(MB/s)
+   33554432             73322.9
+
+
+ GPU     : localhost/GPU-1
+ Device 1: Quadro FX 5800
+ Quick Mode
+
+ Host to Device Bandwidth, 1 Device(s), Pinned memory, Write-Combined Memory
+Enabled
+   Transfer Size (Bytes)        Bandwidth(MB/s)
+   33554432             1896.2
+
+ Device to Host Bandwidth, 1 Device(s), Pinned memory, Write-Combined Memory
+Enabled
+   Transfer Size (Bytes)        Bandwidth(MB/s)
+   33554432             1746.4
+
+ Device to Device Bandwidth, 1 Device(s)
+   Transfer Size (Bytes)        Bandwidth(MB/s)
+   33554432             73008.4
+
+[shree@servergfx ~]$
+----

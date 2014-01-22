@@ -1,0 +1,1306 @@
+= VizStack User Guide =
+Hewlett Packard <shreekumar@hp.com>
+v1.1-2, May 2010
+
+== ChangeLog ==
+
+=== Release 1.1-3 ===
+
+Release 1.1-3 includes an enhancement over version 1.1-2 :
+
+The ParaView script can now use shared GPUs for rendering. Shared GPUs are allocated
+by default; exclusive GPUs can be requested using the -x option.
+
+=== Release 1.1-2 ===
+
+Initial release of the User Guide.
+
+== Introduction ==
+
+VizStack makes it easy to user GPUs on a single machine or a cluster(henceforth collectively called a "visualization system"). This document describes the parts of VizStack that end users will use most frequently. We demonstrate how to create remote desktop sessions (using HP RGS or TurboVNC/VirtualGL), run applications using VirtualGL, and run popular applications like Avizo and ParaView. The next sections of this document describe how end users could use VizStack.
+
+Some application scripts need access to a Tiled Display to run. Tiled Displays need to be configured by your system administrator before you can run such applications.
+
+Under the hood, VizStack is a framework that helps you run GPU-enabled applications on graphics clusters.  Each node in the graphics cluster could have one or more GPUs, and it is not necessary to have a homogeneous configuration. VizStack can also be used on single nodes with one or more GPUs.  VizStack allocates GPUs to users on demand. Applications can configure X servers to control these GPUs, start the X servers and then run the application pieces on them.  A majority of GPU-enabled applications use a single GPU. Few applications can use multiple-GPU to accelerate rendering or computation. It is possible to use both type of applications with VizStack. When a user no longer needs GPUs, they can free them up. Freeing the GPUs also causes the X servers that control those GPUs to be stopped. Doing so allows the GPUs to be used by other users. With VizStack, a GPU can be shared by multiple users as well.
+
+You will find VizStack very different from other systems you are used to. If you are used to X servers and linux, you probably expect the DISPLAY value to be :0, with perhaps one screen configured per GPU. With VizStack, you will find that this assumption is not true most of the times. VizStack dynamically allocates X servers from a pool of available servers. An X server can be configured to control GPUs in many ways, as needed by an application. VizStack can manage the virtual X servers (e.g. TurboVNC) and the normal X servers which run on GPUs.
+
+If you are running a parallel application (i.e. one using multiple GPUs), then your job may be allocated GPUs from the available GPUs. These may or may not be on the same node, and not the same number of GPUs may be allocated on multiple nodes. E.g., if you request 6 GPUs to run a parallel application, you could get 3 GPUs from one node, 2 from another and 1 from a third node.
+
+VizStack manages only the visualization resources on a graphics cluster. One of the nodes is termed a 'master' and runs VizStack's System State Manager daemon. This daemon allocates resources to users and lets them configure X servers and run application pieces on GPUs. No resources can be allocated, and no X servers can be started without this daemon. Also, all running X servers are killed if this daemon is terminated or dies.
+
+As a user of VizStack, you would be interacting with VizStack using several scripts. Each of these scripts perform specific tasks. Some of these scripts run specific applications for you, and some of them let you check the status of the system, find information about what resources are being used and by whom, etc. 
+
+[NOTE]
+These scripts are written using VizStack's Python API. If 
+you are a developer, you may be interested in writing your
+own python scripts. Customizing the existing scripts to
+your needs is a good option too.  VizStack is free 
+software, and is licensed under the GNU GPL license version 2.
+
+== Remote Visualization ==
+
+Remote visualization is perhaps the most common use of a visualization system. Typically, the visualization system is in a datacenter. End-users use a thin-client running on their desktop/laptop to gain access to a GPU accelerated desktop running on the visualization system. The thin-client connects to the visualization system using a standard TCP/IP network. The desktop sessions are typically stateless, i.e., the client program can exit but keep the desktop session keeps running. This gives users the flexibility to start a desktop session, and then connect to it from one location(say their office) and then start their application inside the desktop session. They could optionally exit the client and reconnect to it from another place later on. When the session is no longer in use, it can be stopped, thus freeing up the GPU being used by the session for use by another user.
+
+A typical visualization system has many GPUs, typically at-least as many as the number of nodes in it. Some systems easily have twice the number of GPUs as nodes and even more. 
+
+VizStack has direct support for two remote visualization solutions :
+
+. Hewlett Packard's RGS (Remote Graphics Software) : This is HP's high performance remote visualization solution. One remote user per node is supported, with collaboration. The remote session uses one GPU on the node. The other GPUs on the node are free to be allocated for other purposes.
+
+. TurboVNC/VirtualGL : This is an open source solution. VizStack, by default, configures the system so that two remote users share a single GPU. For applications that stress the GPU, exclusive access can be obtained to a GPU. Using VirtualGL/TurboVNC, one can have at-least as many remote visualization sessions on a node as the number of GPUs in it. With shared GPUs, many more remote sessions are possible.
+
+Users can start remote visualization sessions using two methods : 
+
+. GUI based startup from end-user system: Users can install VizStack Remote Access Tools. The Remote Access Tools provide a single-click GUI to start a remote visualization session. This is a very easy to use option for regular end users, and is highly recommended.
+
+. Command line based startup: Users may start remote visualization sessions using the command line too. This is typically good for specialized usage scenarios (the GUI does not cater to these) and for advanced end-users.
+
+=== VizStack Remote Access Tools ===
+
+The VizStack Remote Access Tools are available with every VizStack release. These are meant to be installed on end-user machines. An end-user machine is typically a laptop or a desktop.
+
+An .exe installer is available for Windows.The exe installer provides the typical windows installation interface.
+
+image::images/screenshots/vizrt-rgs-06.png["Windows installation"]
+
+For linux systems, an RPM packages is available.  The RPM depends on the 
+following software, which needs to be installed prior to installing
+the RPM:
+
+. python-paramiko
+. wxPython
+
+Install using the native package format from the command line. E.g.,
+----
+$ rpm -i vizrt-1.1-1.rpm
+----
+
+NOTE: The end user needs to install HP RGS Receiver or TurboVNC client 
+software prior to using these remote access tools.
+
+==== HP RGS sessions ====
+
+On Linux, run the following command :
+----
+$ /opt/vizrt/bin/remotevizconnector
+----
+
+On Windows, click on the 'Start' button and then choose 'All Programs' | 
+'VizStack Remote Access' | 'Viz Connector for HP RGS Receiver'.
+
+image::images/screenshots/vizrt-rgs-05.png["Startup the Viz Connector"]
+
+This should start the following GUI (the GUI looks similar on linux too):
+
+image::images/screenshots/vizrt-rgs-01.png["Step 1: Enter Connection Information"]
+
+The user interface for launching RGS sessions is fairly simple. You need to enter 
+your username and the hostname/IP address of the VizStack master node.  The desktop 
+is typically started at a default resolution of 1280x1024. If you you want to use 
+a different resolution, then you need to select it from the 'Desktop Resolution' 
+selection list prior to starting the session. 
+
+If you want a complete node (with all resources on that node), turn on the
+'Dedicated Node' checkbox. Use this only if you want to use an application
+that uses GPUs other than those allocated to you.  An example of such an 
+application is VMD 1.8.7. This is a CUDA enabled version of VMD. When you 
+run VMD, it takes control of all the unused GPUs in the node where you run 
+VMD. This can cause problems for other users. In such cases we recommend you 
+allocate complete nodes.
+
+Press the "Connect" button to start a remote desktop for your use.  In a few 
+seconds, you whould see another dialog box asking you for your password;
+this is used for SSH authentication with the cluster.
+
+image::images/screenshots/vizrt-rgs-02.png["Step 2: Enter SSH password"]
+
+Next, an RGS session would be allocated for you, and the HP Remote Graphics 
+Receiver will be started. The RGS session will give you access to a GPU dedicated
+for your use. You will be prompted for your credentials again.
+
+image::images/screenshots/vizrt-rgs-03.png["Step 3: Enter credentials for RGS"]
+
+Assuming all went well, you should next see a linux desktop. This desktop will
+have full OpenGL support, so you should be able to run any application on it
+just as you would locally. The screenshot below shows the user running the
+'glxgears' application, as well as MCS Avizo rendering a sample dataset.
+
+image::images/screenshots/vizrt-rgs-04.png["Step 4: Just-like-local desktop"]
+
+When you are done using the desktop, you should logout. As long as you are
+logged in, a GPU will used up for your session. Note that merely closing the
+RGS receiver window is not equivalent to logging out.
+
+If you want to force termination of your session, then click on the 
+'Terminate Session' button on the Viz Connector GUI. Closing the Viz Connector
+will also cause you to lose your session, and all running applications.
+
+==== TurboVNC/VirtualGL sessions ====
+
+On Linux, run the following command :
+----
+$ /opt/vizrt/bin/remotevizconnector --tvnc
+----
+
+On Windows, click on the 'Start' button and then choose 'All Programs' | 
+'VizStack Remote Access' | 'Viz Connector for TurboVNC/VirtualGL'.
+
+image::images/screenshots/vizrt-tvnc-01.png["Startup the Viz Connector"]
+
+This should start the following GUI (the GUI looks similar on linux too):
+
+image::images/screenshots/vizrt-tvnc-02.png["Step 2: Enter Connection information"]
+
+The user interface for launching TurboVNC/VirtualGL sessions is fairly simple. 
+You need to enter your username and the hostname/IP address of the VizStack 
+master node.  The desktop is typically started at a default resolution of 
+1280x1024. If you you want to use a different resolution, then you need 
+to select it from the 'Desktop Resolution' selection list prior to starting 
+the session. 
+
+If you want a dedicated GPU for your sessions, turn the 'Dedicated GPU'
+box on. By default, you may share a GPU with one/more other users. Choose a 
+dedicated GPU if
+
+* You want to run a GPU intensive application and want the best performance.
+
+* Benchmarking purposes, to get accurate results.
+
+If you want a complete node (with all resources on that node), turn on the
+'Dedicated Node' checkbox. Use this only if you want to use an application
+that uses GPUs other than those allocated to you.  An example of such an 
+application is VMD 1.8.7. This is a CUDA enabled version of VMD. When you 
+run VMD, it takes control of all the unused GPUs in the node where you run 
+VMD. This can cause problems for other users. In such cases we recommend you 
+allocate complete nodes.
+
+Press the "Connect" button to start a remote desktop for your use.  In a few 
+seconds, you whould see another dialog box asking you for your password;
+this is used for SSH authentication with the cluster.
+
+image::images/screenshots/vizrt-rgs-02.png["Step 2: Enter SSH password"]
+
+Next, a TurboVNC session would be allocated for you, and the TurboVNC client
+will be started. You will be prompted for your password again. Note that your
+TurboVNC password does not need to be the same as your SSH password.
+
+image::images/screenshots/vizrt-tvnc-03.png["Step 3: Enter credentials for TurboVNC"]
+
+Assuming all went well, you should next see a linux desktop. This desktop will
+have full OpenGL support. However, to run OpenGL applications, you need to
+prefix "vglrun" to the command line. E.g., to run glxgears, you would use
+
+----
+$ vglrun glxgears
+----
+
+The screenshot below shows the user running CEI's Enliten Pro rendering the sample
+car dataset.
+
+image::images/screenshots/vizrt-tvnc-04.png["Step 4: Just-like-local desktop"]
+
+When you are done using the desktop, you should logout. As long as you are
+logged in, a GPU will used up for your session. Note that merely closing the
+RGS receiver window is not equivalent to logging out.
+
+If you want to force termination of your session, then click on the 
+'Terminate Session' button on the Viz Connector GUI. Closing the Viz Connector
+will terminate all running applications in the session, potentially resulting
+in data loses. So use this with care!
+
+==== Automating SSH authentication ====
+
+The Viz Connector GUI uses SSH to connect from your desktop system to the VizStack
+system. This is the reason you are prompted to enter your SSH password while 
+connecting.  It is possible to remove this step of authentication by using typical 
+passwordless SSH setups.
+
+There are two parts to passwordless SSH setups:
+
+* A one time setup for connecting from an external system to a cluster. This 
+generates a private/public key pair, and propagates the public key to the cluster.
+This step is done once and need not be repeated.
+
+* Loading the private key onto the agent. This needs to be done once per
+desktop session.
+
+===== Windows Desktop =====
+
+First, you have to generate a public/private key pair. This can be done by using
+PuTTYGen.exe. This tool is part of the PuTTY suite. You need to run
+PuTTYGen.exe, select a 'type of key to generate' and then click on the 'Generate'
+button.
+
+image::images/screenshots/vizrt-puttygen.png["Generate a Private/Public key pair"]
+
+For extra security, we recommend that you type in a passphrase.
+
+To setup the passwordless SSH, you will need to take the public key and add it
+to the file '.ssh/authorized_keys' files in your home directory on the VizStack
+master node. The public key is shown in the user interface of PuTTYGen.
+
+You also need to save the private key inside a directory of your choice.
+
+Next, you need to run an SSH key agent program on your desktop
+and add your private key.  Run the pageant.exe file that is available with PuTTY.
+This will minimize to an icon on the your taskbar. Right click on
+the icon, and select "Add Key". You will be prompted to select a
+'Private Key File'. If you entered a passphrase, then you will be
+prompted for it.
+
+At this point, your desktop is setup for remote access. The next time
+you run the Viz Connector (either for RGS or TurboVNC), you will not
+be prompted for an SSH password.
+
+Note that you need to run 'Pageant.exe' once for your local dekstop session
+and add in your private key.
+
+===== Linux Desktop =====
+
+On your linux desktop, you would run a command like
+----
+$ ssh-keygen -t dsa
+Generating public/private dsa key pair.
+Enter file in which to save the key (/home/shree/.ssh/id_dsa):
+Enter passphrase (empty for no passphrase):
+Enter same passphrase again:
+Your identification has been saved in /home/shree/.ssh/id_dsa.
+Your public key has been saved in /home/shree/.ssh/id_dsa.pub.
+The key fingerprint is:
+4d:b9:5a:f0:a9:c2:dc:52:a8:9d:0b:79:08:e0:f5:f2 shree@servergfx
+----
+
+The public key will be in ~/.ssh/id_dsa.pub. The 'ssh-keygen' command 
+prints out the where the public key is. You need to copy this file to 
+the VizStack master node, and execute
+----
+$ cat id_dsa.pub >> ~/.ssh/authorized_keys
+$ chmod 600 ~/.ssh/authorized_keys
+----
+
+Next, you need to run an SSH key agent program on your desktop
+and add your private key.  Run
+----
+$ ssh-add
+Identity added: /home/shree/.ssh/id_dsa (/home/shree/.ssh/id_dsa)
+----
+
+If you entered a passphrase, then you will be prompted to enter it
+at this time.
+
+At this point, your desktop is setup for remote access. The next time
+you run the Viz Connector (either for RGS or TurboVNC), you will not
+be prompted for an SSH password.
+
+Note that you need to run 'ssh-add' once for your local dekstop session
+and add in your private key.
+
+[[REMOTE_CMDLINE_STARTUP]]
+=== Command Line Based Startup ===
+
+Two scripts are available to start remote visualization sessions from the command line:
+
+. viz-rgs : Starts RGS sessions
+
+. viz-tvnc : Starts TurboVNC/VirtualGL sessions.
+
+==== HP RGS sessions ====
+
+===== Basic Usage =====
+
+Starting a session from the command line is quite easy, just run 'viz-rgs'
+----
+$ viz-rgs
+----
+
+To allocate a whole node for usage by the session, use '-N'. Note that
+this will allocate a whole node for your use, but will configure the 
+remote session only on one of the GPUs. This is useful if you want to
+run an application like VMD version 1.8.7 .
+----
+$ viz-rgs -N
+----
+
+The default desktop resolution is 1280x1024. If you want any other 
+resolution, then use the "-g" option
+----
+$ viz-rgs -g 1600x1200
+----
+
+The value for the "-g" option is not limited to the resolution of any
+display device. It is a generic XxY value, with the following restrictions :
+
+. X must be a multiple of 8
+. XxY must be larger than 304x200
+
+If a session is allocated for you, then you will see helpful messages about
+the allocated session, and how to connect to it. 
+
+----
+Starting Desktop with resolution 1280x1024
+===============================================================
+A desktop has been started for you at 'servergfx'
+
+Please use the RGS client to connect, enter 'servergfx' as the
+hostname, and press the 'Connect' button. You'll be asked for your
+username and password again.
+
+You may invite other users to work collaboratively with you. To do
+so, they need to connect to your session at 'servergfx' using the RGS receiver.
+When they connect, you'll see a dialog on the desktop asking for
+permission to allow them in. If you aren't logged into the desktop
+using the RGS client, then they will be disallowed access.
+
+Note that this is a persistent session. You will need to
+logout from the desktop session to free this resource.
+===============================================================
+----
+
+You need to start the RGS client now, type in "servergfx" as the
+machine to connect to, and press the 'Connect' button. Once you do
+that, you should have your remote desktop ready for usage.
+
+You need to logout from the remote desktop when you are finished with
+the session. Doing so will free the GPU allocated to you, letting others
+use it. The script will also exit when you logout.
+
+===== Choosing a specific type of GPU =====
+
+Sometimes, you may need to access to a specific type of GPU. This
+could be the case if you need capabilities provided by the specific
+GPU, or maybe to check the compatibility/performance of your application 
+on a specific GPU. To choose a specific GPU type, use the "--gpu-type"
+option. E.g.,
+
+----
+$ viz-rgs --gpu-type "Quadro FX 5800"
+----
+
+Note that you need to exactly spell out the type of the GPU.
+
+To find out the type of GPUs available in the system, use the
+"--show-gpu-types" option. E.g.,
+
+----
+[shree@servergfx ~]$ viz-rgs --show-gpu-types
+GPU type 'Quadro FX 5800', total available in system = 2
+GPU type 'Quadro FX 5600', total available in system = 2
+----
+
+===== Restricting GPU allocation to specific nodes =====
+
+Sometimes, you may want to allocate a GPU, while ensuring that
+it is selected from one/more nodes of your choice. The reasons
+for this choice, again, could be many. These nodes may have 
+specific system configurations that you may want to use - e.g.
+lots of memory or quad core processors. Use the "-a" option
+to limit allocation to one/more nodes of your choice. 
+
+To allocate a GPU from a specific node, use
+----
+[shree@servergfx ~] viz-rgs -a node1
+----
+
+You may use the -a option more than once. In this case, the
+GPU will be allocated from one of these nodes.
+
+----
+[shree@servergfx ~] viz-rgs -a node1 -a node5 -a node7
+----
+
+===== Remote Collaboration with Local Users on Tiled Displays =====
+
+You want want to setup a visualization session such that
+
+* A local user can control the desktop using a keyboard and mouse. The
+local user may use displays connected to one GPU (upto 2 displays) 
+or one QuadroPlex (upto 4 displays). 
+
+* One or more remote users can watch the desktop remotely using 
+the HP RGS client. If allowed access, they can also control the desktop.
+
+[NOTE]
+======================================================================
+Please ensure that the local user is the owner of the session. When 
+other users try to connect to the session using the RGS client, then 
+a dialog box pops up on the desktop. The person controlling the 
+desktop thus has the option to give access to the connecting users.
+======================================================================
+
+Do help you with this, the system administrator may identify tiled
+displays which you can use for such forms of collaboration. Let's
+say a tiled display called 'td2x2' is available for your use. To 
+start RGS on it, use the command
+
+----
+$ viz-rgs -t td2x2
+----
+
+To get a list of valid tiled displays that you can use with this script,
+use the "--show-valid-tiled-displays" option. 
+
+----
+$ viz-rgs --show-usable-tiled-displays
+The following tiled displays can be used with this script:
+mosaic
+desktop-left-2x2
+----
+
+Now, the users in front of the tiled display 'td2x2' will be able to
+see and control the desktop. Remote users should be able to connect
+using the HP RGS client and collaborate effectively with the users in
+front of the tiled display.
+
+This usage scenario can be used for local/remote collaboration and 
+also for remote learning/training.
+
+When using the tiled display, you may want to change the display mode 
+of the displays. Using a lower resolution mode, for instance, can improve
+the interactivity for remote users. Use the "-m" option for this
+
+----
+$ viz-rgs -t td2x2 -m 1280x1024
+----
+
+Note that the mode value must be a valid mode for the displays connected
+to the tiled display 'td2x2'.
+
+To get a list of valid modes that you can use with a specific tiled 
+display, use the "--show-usable-modes" option.
+
+----
+$ viz-rgs -t td2x2 --show-usable-modes
+Modes usable with tiled display 'td2x2' are:
+1600x1200_60
+1600x1200
+1280x1024_60
+1280x1024
+----
+
+===== Combining Usage of Options =====
+
+You could use multiple options together. E.g.,
+----
+$ viz-rgs --gpu-type 'Quadro FX 4800' -a node1 -a node2
+----
+will allocate the specific GPU type from the nodes given.
+
+===== Usage with Batch Schedulers =====
+
+If your VizStack system is configured with LSF as mentioned in the 
+Admin Guide, then you may start an RGS session using
+----
+$ bsub -R "rusage[gpu=1,rgs=1]" /opt/vizstack/bin/viz-rgs -b
+----
+
+viz-rgs will allocate a GPU on the node where the script gets scheduled, 
+and setup RGS to use that GPU.  However, it will not do any site specific 
+operations that may be needed to inform the user how this session may be 
+used (e.g. by sending email). You may choose to redirect the output of 
+the script to a file, and get the connection information from there.
+
+[NOTE]
+============================================================================
+The script will allocate an RGS session on the node irrespective of whether
+you reserve a GPU. This happens since VizStack cannot query LSF and find out
+what resources were allocated to a particular user.  
+
+Later releases of VizStack may be able to query the scheduler about what 
+resources were allocated to a node, and then use that information to require 
+the user to reserve GPUs using LSF/other schedulers.
+============================================================================
+
+==== TurboVNC/VirtualGL sessions ====
+
+===== Basic Usage =====
+
+Starting a session from the command line is quite easy
+----
+$ viz-tvnc
+----
+
+By default, a shared GPU is allocated for your use. This implies that you 
+may be sharing the GPU's processing power and resources with other users.
+To allocate a GPU exclusively for your own use, you need to use the "-x"
+option
+
+----
+$ viz-tvnc -x
+----
+
+To allocate a whole node for usage by the session, use '-N'. Note that
+this will allocate a whole node for your use, but will configure the 
+remote session only on one of the GPUs. This is useful if you want to
+run an application like VMD version 1.8.7 .
+----
+$ viz-tvnc -N
+----
+
+The default desktop resolution is 1280x1024. If you want any other 
+resolution, then use the "-g" option
+----
+$ viz-tvnc -g 1600x1200
+----
+
+The value for the "-g" option is not limited to the resolution of any
+display device. It is a generic XxY value, with the following restrictions :
+
+. X must be a multiple of 8
+. XxY must be larger than 304x200
+
+If a session is allocated for you, then you will see helpful messages about
+the allocated session, and how to connect to it. 
+
+----
+Starting Desktop with resolution 1280x1024
+==============================================
+A desktop has been started for you at 'servergfx:1'
+
+Please use the TurboVNC viewer to connect to 'servergfx:1'
+
+Note that this is a persistent session. You will need to
+logout from the desktop session to free this resource.
+
+Inside your desktop, you need to use the 'vglrun' command
+to run OpenGL applications. E.g., to run glxgears from the
+command prompt, use
+
+  $ vglrun glxgears
+
+NOTE: If you plan to use any VizStack application scripts
+inside the TurboVNC session, then you don't need to prefix
+those with 'vglrun'
+
+e.g., to run avizo inside the TurboVNC session, you would use
+  $ viz_avizovr [options]
+instead of "vglrun viz_avizovr [options]"
+
+==============================================
+----
+
+At this point, you need to run the TurboVNC client from your
+desktop and connect to 'servergfx:1'. You will be prompted for
+your password. Once you are authenticated, you should see
+the remote desktop.
+
+You need to logout from the remote desktop when you are finished with
+the session. Doing so will free the GPU allocated to you, letting others
+use it. The script will also exit when you logout.
+
+===== VNC Reverse Connection  =====
+
+Wouldn't it be convenient if you started the remote session and it
+connected back to your desktop ? This would eliminate the need for you
+to manually start the TurboVNC viewer, enter the information about where
+to connect, and then the password entry. The viz-tvnc script provides
+a way to achieve this via the "-c" option
+
+Before you run the viz-tvnc script, start the TurboVNC viewer in the
+"listening" mode. After that, in the SSH session to your VizStack system,
+use the following command :
+----
+$ viz-tvnc -c my_desktop
+----
+
+You need to replace "my_desktop" with the hostname or IP address of your 
+desktop system. if you choose to use a hostname, then the you should ensure
+that the hostname is resolvable from the nodes under VizStack.
+
+Once you run this command, a remote session will be allocated to you, and
+connected back to the TurboVNC listening daemon. You will get access to
+the session without the need for any other manual steps.
+
+===== Choosing a specific type of GPU =====
+
+Sometimes, you may need to access to a specific type of GPU. This
+could be the case if you need capabilities provided by the specific
+GPU, or maybe to check the compatibility/performance of your application 
+on a specific GPU. To choose a specific GPU type, use the "--gpu-type"
+option. E.g.,
+
+----
+$ viz-tvnc --gpu-type "Quadro FX 5800"
+----
+
+Note that you need to exactly spell out the type of the GPU.
+
+To find out the type of GPUs available in the system, use the
+"--show-gpu-types" option. E.g.,
+
+----
+[shree@servergfx ~]$ viz-tvnc --show-gpu-types
+GPU type 'Quadro FX 5800', total available in system = 2
+GPU type 'Quadro FX 5600', total available in system = 2
+----
+
+===== Restricting GPU allocation to specific nodes =====
+
+Sometimes, you may want to allocate a GPU, while ensuring that
+it is selected from one/more nodes of your choice. The reasons
+for this choice, again, could be many. These nodes may have 
+specific system configurations that you may want to use - e.g.
+lots of memory or quad core processors. Use the "-a" option
+to limit allocation to one/more nodes of your choice. 
+
+To allocate a GPU from a specific node, use
+----
+[shree@servergfx ~] viz-tvnc -a node1
+----
+
+You may use the -a option more than once. In this case, the
+GPU will be allocated from one of these nodes.
+
+----
+[shree@servergfx ~] viz-tvnc -a node1 -a node5 -a node7
+----
+
+===== Combining Usage of Options =====
+
+You could use multiple options together. E.g.,
+----
+$ viz-tvnc -x --gpu-type 'Quadro FX 4800' -a node1 -a node2 -c my_hostname
+----
+will allocate an exclusive GPU of type 'Quadro FX 4800' from the nodes node1 
+and node2, and finally connect the session to a listening TurboVNC viewer on 
+'my_hostname'.
+
+===== Usage with Batch Schedulers =====
+
+If you have configured LSF as mentioned in the Admin Guide, then a user may start 
+a TurboVNC session using
+----
+$ bsub -R "rusage[gpu=1]" /opt/vizstack/bin/viz-tvnc -b
+----
+
+Note that viz-tvnc will allocate a GPU on the node where the script gets scheduled, 
+and setup TurboVNC to use that GPU.  However, it will not do any site specific 
+operations that may be needed to inform the user how this session may be used. 
+You may choose to redirect the output of the script to a file, and get the 
+connection information from there. 
+
+A better method would be to use TurboVNC's reverse connection feature. In this
+method, the user first starts the TurboVNC client in "listening" mode on his 
+desktop and then run the following command on the cluster:
+----
+$ bsub -R "rusage[gpu=1]" /opt/vizstack/bin/viz-tvnc -b -c <desktop_host>
+----
+
+== Remote Rendering using VirtualGL ==
+
+Users may want to use the rendering capability of the GPUs from the visualization system, but 
+choose to have the application window on their desktops. This is possible using VirtualGL 
+if the user desktop has a running X server. This is perhaps the only available solution to
+render stereo imagery on the visualization system and have it delievered at runtime to the
+end users desktop. Also, the application windows are "seamless"; every application window
+appears as a separate window on the user desktop.
+
+=== Basic Usage ===
+
+To do remote rendering using VirtualGL, you need to follow a few steps :
+
+. Start an X server on your desktop. If your desktop machine is linux, then this is not a problem.
+However, if you are a windows user, you may need to install an additional X server. 
+
+. SSH to the VizStack system, with X11 forwarding enabled.
+
+. Run your application with viz-vgl. E.g.
++
+----
+[shree@servergfx]$ viz-vgl glxgears
+----
++
+To allocate a GPU for exclusive usage of your application, use "-x"
++
+----
+[shree@servergfx Tutorials]$ viz-vgl -x glxgears
+VirtualGL client running on host localhost, port 4242
+Running application '/usr/bin/vglrun glxgears' on host 'localhost', gpu 2, server :9
+8782 frames in 5.0 seconds = 1756.219 FPS
+9141 frames in 5.0 seconds = 1828.067 FPS
+----
+
+=== Running a Stereo Application ===
+
+To run a stereo application, you need stereo capable hardware on your desktop as well as on your visualization system.
+
+The steps to run a stereo application are :
+
+. Start the X server on your desktop, such that it supports stereo visuals. If your desktop is a windows system, then you will need to use the Exceed server. Use 'glxinfo' and verify that the server exposes stereo visuals.
+
+. Start the vglclient on your desktop
+
+. Connect to the VizStack system with X11 forwarding enabled. Run your stereo application using viz-vgl with the "-s" option, E.g.,
++
+----
+$ viz-vgl -s /path/to/pulsar
+----
+
+=== Common Options ===
+
+Like the viz-tvnc script, viz-vgl also supports the following options
+
+* -a : Allocate a GPU from specific node(s). E.g.,
++
+To allocate a GPU from node1, use
++
+----
+$ viz-vgl -a node1 glxgears
+----
++
+To allocate a GPU from node1, node2, or node3, use
++
+----
+$ viz-vgl -a node1 -a node2 -a node3 glxgears
+----
+
+* --gpu-type : Allocate a specific GPU type to run the application. E.g.,
++
+----
+$ viz-vgl --gpu-type="Quadro FX5800" glxgears
+----
+
+* --show-gpu-types : Shows the types of GPUs available for allocation.
++
+----
+[shree@servergfx Tutorials]$ viz-vgl --show-gpu-types
+GPU type 'Quadro FX 5800', total available in system = 2
+GPU type 'Quadro FX 5600', total available in system = 2
+----
+
+=== Cygwin Usage Notes ===
+
+You may use the X server (http://x.cygwin.com) supplied with the cygwin project (http://www.cygwin.com/).
+This is a free alternative to commercial X servers. If you use the cygwin X server, then you 
+may also want to compile and install VirtualGL on cygwin.
+
+NOTE: You will not be able to use stereo or overlays with the cygwin X server.
+
+The steps needed on cygwin are
+
+. Start the X server. cygwin comes with two types of X servers : 
+.. Windowed mode : The server is started using the "startx" command. In this mode, the X server display is a big window. The application windows show up inside this X server window.
+.. Multiwindow mode : The server is started using the "startxwin" command. In this mode, each application window is a window on the desktop. This results in natural interaction with application windows.
+
+. Connect to the VizStack system using ssh, with X11 forwarding enabled. 
+When using cygwin's ssh client, it may appear that SSH with X11 forwarding 
+is not working. E.g.,
++
+----
+bash-3.2$ ssh -X shree@15.146.228.89
+shree@15.146.228.89's password:
+Warning: untrusted X11 forwarding setup failed: xauth key data not generated
+Warning: No xauth data; using fake authentication data for X11 forwarding.
+----
++
+The solution is to use "ssh -Y". This enables trusted X11 forwarding.
+
+. Use viz-vgl to run your application.
+
+== Desktop Sessions ==
+
+VizStack lets you start "local" desktop sessions. These let you directly control a desktop using
+a keyboard and a mouse. The desktop could span one or more GPUs, but is restricted to use
+resources on a single node. The "viz-desktop" scripts lets you start such a session.
+
+The administrator of your system will typically set these tiled displays up for your use.
+
+Pass the name of the tiled display you want to use to viz-desktop. E.g.,
+----
+$ viz-desktop -t td2x2
+----
+
+The desktop will be started on the tiled display 'td2x2'. Any keyboard and mouse defined in
+the tiled display can be used to control the desktop.
+
+If you want to get a list of tiled displays you want can use with the 
+viz-desktop script, use the "--show-usable-tiled-displays" option
+----
+$ viz-desktop --show-usable-tiled-displays
+----
+
+If you want to run the displays at a different mode, use the '-m' flag.
+
+----
+$ viz-desktop -t td2x2 -m 1280x1024
+----
+
+If you want to find what modes are valid for a tiled display, use
+the '--show-usable-modes' option.
+
+----
+$ viz-desktop -t td2x2 --show-usable-modes
+----
+
+[NOTE]
+======================================================================
+VizStack tries to automatically enable framelock on the tiled display.
+Sometimes this can fail, causing the desktop to exit. You may work
+around this problem by using the '--no-framelock' option.
+======================================================================
+
+== Running Popular Applications ==
+=== ParaView ===
+
+ParaView(http://www.paraview.org/) is a very popular open source visualization application.
+According to the ParaView website,
+
+[verse]
+==============================================================================
+ParaView is an open-source, multi-platform data analysis and visualization 
+application. ParaView users can quickly build visualizations to analyze their 
+data using qualitative and quantitative techniques. The data exploration can 
+be done interactively in 3D or programmatically using ParaView's batch 
+processing capabilities.
+
+ParaView was developed to analyze extremely large datasets using distributed 
+memory computing resources. It can be run on supercomputers to analyze datasets 
+of terascale as well as on laptops for smaller data.
+==============================================================================
+
+ParaView is capable of using multiple GPUs to render large datasets using 
+object decomposition methods. It can also render datasets on tiled displays,
+using multiple GPUs. In these cases, the paraview client (controlling GUI) runs 
+on the visualization system.
+
+It is possible to run the ParaView client on a users desktop also. When used
+this way, the client communicates with a ParaView server running on the VizStack 
+systems, and use the GPUs available with VizStack to render images. These images 
+are then transported back to the ParaView client for final display. 
+
+VizStack has an available integration with ParaView, which makes it easier to use
+these scenarios. 
+
+==== Data Decomposition on multiple GPUs ====
+
+ParaView is capable of sort-last compositing. In this mode, the objects to be
+rendered are distributed intelligently onto multiple GPUs. Each GPU renders a
+fraction of the overall geometry. The partial images are combined together
+to give the final image.
+
+Assume that you are sitting on your desktop system - which may be a Windows
+or a Linux desktop or laptop. You also have ParaView installed on this machine.
+You would next connect to your VizStack system using SSH. After that, you 
+need to start the ParaView server inside the SSH session. Let's say you want
+to use four shared GPUs (and four CPUs) for rendering.
+----
+$ viz-paraview -r 4
+Waiting 4 seconds for the MPI fabric to bring up the servers...Listen on port: 11113
+Waiting for client...
+The ParaView server has been started.
+Please use the ParaView client to connect to cs://servergfx:11113
+The ParaView server will exit automatically after you have used it once.
+To force termination of the ParaView server, terminate this script using ^C
+<script waits at this point>
+----
+
+Next, you will start the ParaView client program on your desktop (or laptop).
+Goto the File menu, and select "Connect". In the popup dialog box, define
+a new server by clicking on "Add Server". 
+
+Type in any name for this connection, let's say "mysrv".  Fill "servergfx" in 
+the "Host" field.  Enter "11113" in the "Port" field. Choose "Client/Server" 
+as the value for "Server Type". Click on "Configure" to save the properties 
+corresponding to this server.
+
+image::images/screenshots/paraview-01.png["Defining a ParaView Server"]
+
+Select 'Manual' as the 'Startup Type' for this server and click on 'Save' to
+finish the server configuration.
+
+image::images/screenshots/paraview-02.png["Manual Startup"]
+
+Next, select "mysrv" from the list of servers and click on the "Connect" button.
+You should be able to connect to the server. After this, load some data and
+render it. The remote GPUs will be used to render the data, but the overall
+image will be visible on your ParaView client window. The image below shows
+ParaView rendering the 'Happy Buddha Model' from the Stanford Model Repository.
+
+image::images/screenshots/paraview-03.png["Parallel Rendering"]
+
+
+==== Resolution Scale-up on Tiled Displays ====
+
+You may also use the ParaView client to control rendering on a physical Tiled
+Display defined in VizStack.
+----
+$ viz-paraview -t test
+Waiting 4 seconds for the MPI fabric to bring up the servers...Listen on port: 11115
+Waiting for client...
+The ParaView server has been started.
+Please use the ParaView client to connect to cs://servergfx:11115
+The ParaView server will exit automatically after you have used it once.
+To force termination of the ParaView server, terminate this script using ^C
+<script waits at this point>
+----
+
+Note that the port number used by the ParaView server is dependent on
+which GPUs get allocated. You may find that this varies from run to run.
+
+.Stereo on Tiled Displays
+[TIP]
+======================================================
+ParaView will be setup for stereo rendering on the 
+tiled display, if you define the tiled display with
+stereo enabled.
+======================================================
+[NOTE]
+======================================================================
+If a tiled display supports framelock, then VizStack tries to 
+automatically enable framelock. Sometimes this can fail, in which 
+case ParaView will not start. You may work around this problem by using 
+the '--no-framelock' option.
+======================================================================
+
+==== Running a "local" ParaView client ====
+
+You may have a need to run the ParaView client on one of the VizStack systems.
+This is typically the case when you are using a remote desktop solution like HP's RGS 
+or TurboVNC. Alternately, you may be controlling a physical terminal OR tiled display
+directly (using viz-desktop), and hence need to run the ParaView client locally.
+
+To run the ParaView client locally (in addition to the server), pass the option
+--local
+----
+$ ./bin/viz-paraview -r 2 --local
+Waiting 4 seconds for the MPI fabric to bring up the servers...Listen on port: 11113
+Waiting for client...
+Starting ParaView client on your local desktop.
+Waiting for ParaView client to exit...
+Client connected.
+<waits for client exit>
+----
+
+At this point, you should see the ParaView client running on your desktop. The
+client is configured to connect to the started ParaView server. You may also use
+--local with -t to control ParaView rendering on another tiled display.
+
+==== MPI libraries ====
+
+The example ParaView invocations till now assume that ParaView is compiled with
+OpenMPI. It is possible to compile ParaView with other MPI libraries as well -
+e.g., HP MPI(or Platform MPI), or MPICH, or some other MPI implementation. While 
+MPI is a standard, the various MPI implementations have differences in terms of 
+how the MPI application is actually launched.
+
+viz-paraview abstracts out the differences between the application launch, and 
+lets you use ParaView that has been compiled with 3 separate MPI flavours:
+
+. Platform MPI or HP MPI. Use --mpilib=hpmpi. 
+
+. OpenMPI. This is the default. The ParaView supplied with many distros(e.g., Ubuntu/Debian) is compiled against this. Equivalent to "--mpilib=openmpi"
+
+. MPICH. Use --mpilib=mpich
+
+Please pass the right library to be used. The viz-paraview script may fail otherwise.
+
+==== Configuring ParaView Servers on the client ====
+
+VizStack dynamically picks up GPUs needed for running the ParaView server. These
+GPUs could be on any of the nodes managed by VizStack. Also, since multiple users
+might be using the system at the same time, a port number for the ParaView server
+is also computed dynamically.
+
+To eliminate some of the manual work needed on the ParaView client, we recommend
+that you create "Default Servers" for your ParaView client. This is described in
+detail at http://www.cmake.org/Wiki/ParaView:Server_Configuration.
+
+To define a "Default Server" to connect to one of the nodes in the VizStack system,
+you need to add the following lines to your servers.pvsc file.
+
+----
+<Server name="pvserver-host1" resource="cs://host1">
+    <ManualStartup>
+        <Options>
+            <Option name="PV_SERVER_PORT" label="Server Port:" save="true" >
+                <Range type="int" min="11111" max="11200" step="1" default="11111" />
+            </Option>
+        </Options>
+    </ManualStartup>
+</Server>
+----
+
+Replace 'host1' by the hostname of the first system under VizStack. Define a default 
+server for every node. Restart the ParaView client. Now, you should see the new servers
+you defined.
+
+SSH to the cluster and start ParaView using 'viz-paraview'. In a few seconds, the server
+name(say 'host1') and port number(say 11120) will be printed out. Connect to the ParaView
+server using 'pvserver-host1'. You will prompted for a server port number. Fill in the
+port number, and press the 'Connect' button. You should now be connected to the ParaView
+server started for you.
+
+===== Reverse Connections =====
+
+Your VizStack system could be on the other side of the firewall. In this case, you need
+to use ParaView's reverse connection feature.
+
+Again, create a default servers for every node you wish to use. There 'resource' value in
+the XML file will need to change from 'cs://host1' to 'csrc://host1, everything else will 
+remain the same.
+
+----
+<Server name="pvserver-host1" resource="cs://host1">
+    <ManualStartup>
+        <Options>
+            <Option name="PV_SERVER_PORT" label="Server Port:" save="true" >
+                <Range type="int" min="11111" max="11200" step="1" default="11111" />
+            </Option>
+        </Options>
+    </ManualStartup>
+</Server>
+----
+
+Next, SSH to the VizStack system and start ParaView. Use the '--connect-to' parameter
+to instruct the started ParaView server to connect back to your desktop.
+
+----
+$ viz-paraview -t test --connect-to=<your_hostname>
+Waiting 4 seconds for the MPI fabric to bring up the servers...Listen on port: 11115
+Waiting for client...
+The ParaView server has been started.
+Please use the ParaView client to connect to cs://servergfx:11115
+The ParaView server will exit automatically after you have used it once.
+To force termination of the ParaView server, terminate this script using ^C
+<script waits at this point>
+----
+
+Replace your_hostname with the hostname or IP address of your desktop (i.e. the
+machine where you run the ParaView client).
+
+Now, connect to the allocated host using the pre-defined server. You will be 
+prompted for the port number. Once you select connect, your ParaView server
+will be able to connect to the ParaView client.
+
+If you run a firewall on your desktop, the you need to ensure that the
+incoming connections from the ParaView server are allowed.
+
+=== Avizo ===
+
+Avizo (http://www.vsg3d.com/vsg_prod_avizo_overview.php) is a popular commercial 
+application. The product website describe it as
+[verse]
+================================================================================
+Avizo(R) software is a powerful, multifaceted tool for visualizing, 
+manipulating, and understanding scientific and industrial data.
+
+Wherever three-dimensional data sets need to be processed, in materials 
+science, geosciences, environmental or engineering applications, Avizo offers 
+abundant state-of-the-art features within an intuitive workflow and easy-to-use 
+graphical user interface.
+================================================================================
+
+VizStack has a script, viz-avizovr, that allows you to run Avizo in VR mode on a tiled display.
+
+----
+$ export AVIZO_HOME=/tmp/avizo # if not done in the environment
+$ viz-avizovr -t wall
+Using arch-LinuxAMD64-Optimize...
+other prints
+<script waits here>
+----
+
+At this point, Avizo's GUI should pop up on your screen. Any model you load on
+this will also get rendered on the tiled display named 'wall'. If you run this script 
+inside a remote session using TurboVNC, then you do not need to prefix this with
+'vglrun'.
+
+.Stereo on Tiled Displays
+[TIP]
+======================================================
+If you have setup the Tiled Display with stereo, then 
+you should see stereo imagery being generated on the 
+tiled display. No other setup is needed.
+======================================================
+
+[NOTE]
+======================================================================
+If a tiled display supports framelock, then VizStack tries to 
+automatically enable framelock. Sometimes this can fail, in which 
+case Avizo will not start. You may work around this problem by using 
+the '--no-framelock' option.
+======================================================================
+
+== Using Parallel Rendering Libraries ==
+
+=== OpenSG ===
+
+OpenSG (http://www.opensg.org) is a popular open source scenegraph library for 
+creating realtime graphics programs. The OpenSG website describes it as
+
+[verse]
+================================================================================
+OpenSG is a portable scenegraph system to create realtime graphics programs, 
+e.g. for virtual reality applications. It is developed following Open Source 
+principles (LGPL) and can be used freely. It runs on Windows, Linux, Solaris 
+and MacOS X and is based on  OpenGL. It is used in a number of projects and 
+places to do many different things, all of them cool. :-) 
+================================================================================
+
+OpenSG has extensive support for graphics clusters, making it attractive for 
+a variety of applications.
+
+VizStack provides example scripts which show how you could run your OpenSG
+application on a VizStack system. To get access to these examples, you need to
+install the vizstack-opensg-demos package.
+
+Two scripts are available : run_sortlast and run_tiled_display. Both these
+are in the /opt/vizstack/share/demos/OpenSG/bin directory.
+
+Running them is similar to most VizStack user scripts. Examples:
+
+* Running the SortLastClusterClient with 3 GPUs
++
+----
+$ run_sortlast -r 3
+----
+
+* Running the SortFirstClusterClient on a tiled display
++
+----
+$ run_tiled_display -t wall
+----
+
+Note that the SortLastClusterClient program included in the package has a 
+couple of changes compared to the one in the OpenSG 1.8 distribution. These
+are documented at the top of the source files.
+
+
+=== Equalizer ===
+
+Equalizer (http://www.equalizergraphics.com) is a framework to create and deploy
+parallel OpenGL-based applications. The Equalizer website describes it as
+
+[verse]
+================================================================================
+Equalizer is the standard middleware to create and deploy parallel OpenGL-based
+applications. It enables applications to benefit from multiple graphics cards, 
+processors and computers to scale the rendering performance, visual quality and 
+display size. An Equalizer application runs unmodified on any visualization 
+system, from a simple workstation to large scale graphics clusters, multi-GPU 
+workstations and Virtual Reality installations. 
+================================================================================
+
+Equalizer is a feature rich programming framework. It is possible to run an
+application in many configurations.  Equalizer provides the means to run 
+applications which use the equalizer library. However, you still need
+to write configuration files to help you run those on specific resources. You 
+would typically author these configuration files in a fairly static manner. First
+you make a list of nodes available to you, and perhaps assume that all GPUs on 
+those hosts are available to you for rendering. Next, you consider what Equalizer
+compounds make sense for your application and dataset. Then you generate a
+configuration file given these inputs. Finally, you run your application.
+
+With VizStack, GPUs are allocated dynamically to meet user needs. These GPUs
+may or may not be on a same node. Unless you ask for it specifically, you will
+not get an equal number of GPUs on all the nodes where your job might run.
+Finally, you may not be allocated the same X servers for your GPUs (i.e. your
+DISPLAY variables will not be what you expect). A dynamic multi-user environment
+environment like VizStack introduces other challenges as well.
+The application instances of each user must not clash with each other. Equalizer's
+servers and render clients use TCP/IP port numbers. If multiple users run their
+applications, then the port numbers used by them must not clash; else the applications
+of one/more users may fail to start.
+
+VizStack provides a sample script 'viz-equalizer' (in /opt/vizstack/share/samples/equalizer).
+This script lets you run the standard equalizer applications on a VizStack system
+without needing to do anything else. The script generates configuration
+file needed for the equalizer server for multiple modes, runs any required render 
+clients, the equalizer server, and the application too.
+
+Some sample invocations:
+
+* Sort-first with 4 additional GPUs. The local GPU is also used for 
+rendering.
++
+----
+$ viz-equalizer -r 4 -- eqPly rockerArm.ply 
+----
+
+* Sort-last with 4 additional GPUs. The local GPU is also used for rendering.
++
+----
+$ viz-equalizer -r 4 --sort-first -- eqPly rockerArm.ply 
+----
+
+* Sort-last with 4 additional GPUs and load equalization. The local GPU 
+is also used for rendering. 
++
+----
+$ viz-equalizer -r 4 --sort-first --load-equalizer -- eqPly rockerArm.ply 
+----
+
+* DPlex rendering with 1 additional GPU
++
+----
+$ viz-equalizer -r 1 --dplex -- eqPly rockerArm.ply 
+----
+
+* Running the app on any VizStack Tiled display. A rescaled copy of the image
+on the tiled display is shown on the local GPU.
++
+----
+$ viz-equalizer -t wall -- eqPly rockerArm.ply 
+----
+
+The viz-equalizer script can be used with all equalizer example programs, but it is
+mostly tested with eqPly.
+
+As you can see, not all Equalizer modes are supported by the script. Equalizer is a 
+very flexible framework. You may find that the 'viz-equalizer' script does not setup things exactly the
+way you want them to be. E.g., you may want use Windows instead of FBOs, or you may
+want higher precision frame buffers. Treat the 'viz-equalizer' script as a template
+to base your other scripts on!
+
+== Known Issues ==
+
+=== Remote Sessions started using the Viz Connector terminate after some time ===
+
+The Viz Connector uses SSH as the mechanism to connect to the VizStack cluster.
+This is a separate connection. The remote access client(either HP RGS or TurboVNC) 
+uses its own separate network connection.
+
+If your SSH connection gets dropped, then you will lose your desktop connection.
+There could be several reasons why you your SSH connection could terminate:
+
+* A flaky network.
+
+* Several sites have a policy to disconnect SSH sessions that run longer than
+a certain period of time. If this is the case, you could request your system
+administrator to relax this restriction if possible.
+
+If you want to avoid termination of your desktop session due to these reasons,
+then you may consider using the following workaround:
+
+* Connect to the cluster using SSH
+
+* Start a GNU Screen session, typing the command 'screen'. Now you are inside
+an independent console session.
+
+* Start your remote desktop session using the command line, using either 
+'viz-rgs' or 'viz-tvnc' as described in <<REMOTE_CMDLINE_STARTUP>>.
+
+* Detach from the screen session, and disconnect your SSH session.
+
+* Now, unless you logout from your remote desktop, you won't lose your remote
+desktop session. However, you will need to remember which server was allocated
+to you.
+
+* You could also SSH to the cluster again, attach to the running screen
+session and kill your desktop session manually.
+
+=== Keyboard trouble in a TurboVNC session ===
+
+After you start a TurboVNC session, you may find that the keyboard doesn't
+work the way you expect it to.  This is not a VizStack issue per-se. This is 
+related to the Linux distro you are using. Many threads discuss this, including 
+http://ubuntuforums.org/showthread.php?t=1139989
+
+On Ubuntu 9.10(karmic) Server, this was fixed by adding the lines
+----
+XKL_XMODMAP_DISABLE=1
+export XKL_XMODMAP_DISABLE
+----
+just after the shebang line in  '~/.vnc/xstartup.turbovnc' .
+
+

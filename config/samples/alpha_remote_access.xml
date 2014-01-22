@@ -1,0 +1,6 @@
+<remote_access>
+	<node>
+		<hostname>alpha13</hostname> 
+		<remote_access_hostname>15.146.228.96</remote_access_hostname>
+	</node>
+</remote_access>

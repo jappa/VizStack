@@ -1,0 +1,293 @@
+#!/usr/bin/env python
+
+# VizStack - A Framework to manage visualization resources
+
+# Copyright (C) 2009-2010 Hewlett-Packard
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+"""
+viz_desktop
+
+Starts a desktop for a user on a tiled display, with keyboard and mouse enabled.
+"""
+import vsapi
+from vsapi import ResourceAccess, Screen, GPU, Server, Keyboard, Mouse, VizResource, VizError
+from pprint import pprint
+from optparse import OptionParser, OptionGroup
+import sys
+import re
+import time
+import string
+import socket
+import os
+import vsutil
+
+def isTDSuitable(tdToUse):
+	"""
+	Ensure that the tiled display meets our requirements !
+	
+	0. The resource group must be a tiled_display
+	1. Must have _exactly_ one reslist.
+	2. The reslist must have at least one real server [this is enusred by the SSM]
+	3. The reslist must have one keyboard
+	4. The reslist must have one mouse
+	5. The reslist must atleast one GPU [this is ensure by the SSM]
+	"""
+	if tdToUse.getType()!="tiled_display":
+		msg = "Resource group '%s' has handler '%s'. Only tiled_displays are supported by this script"%(tdToUse.getType())
+		return (False, msg)
+
+	tdToUse = vsutil.normalizeRG(tdToUse)
+
+	tdRes = tdToUse.getResources()
+	if len(tdRes)!=1:
+		msg =  "The passed tiled_display '%s' is not suitable for this script. It needs to define resources on one node using exactly one X server. '%s' has %d reslists."%(tdToUse.getName(), tdToUse.getName(), len(tdRes))
+		return (False, msg)
+
+	# Ensure resources are on one host.
+	hosts = map(lambda x: x.getHostName(), tdRes[0])
+	hostsUniq = {}
+	for name in hosts:
+		hostsUniq[name] = None
+	hostsUniq = hostsUniq.keys()
+	if len(hostsUniq)>1:
+		msg =  "The passed tiled_display '%s' is not suitable for this script. It needs to define resources on exactly one node. '%s' has resources defined on %d node(s): %s."%(tdToUse.getName(), tdToUse.getName(), len(hostsUniq), hostsUniq)
+		return (False, msg)
+
+	kbd = vsapi.extractObjects(Keyboard, tdRes)
+	if len(kbd)!=1:
+		msg = "Tiled display needs to use exactly one keyboard. You're using %d"%(len(kbd))
+		return (False, msg)
+
+	mouse = vsapi.extractObjects(Mouse, tdRes)
+	if len(mouse)!=1:
+		msg = "Tiled display needs to use exactly one mouse. You're using %d"%(len(mouse))
+		return (False, msg)
+
+	return (True, "")
+
+#
+# Script body starts from here.
+#
+if __name__ == "__main__":
+	# Parse and validate options
+	parser = OptionParser(description=
+"""Starts a desktop session for a user on a tiled display, with keyboard and mouse enabled.
+
+You can use tiled displays which use resources only from a single node with this script.
+""")
+	group = OptionGroup(parser, "Frequently used options")
+	group.add_option("-t", "--tiled-display", action="store", type="string", dest="tiled_display_name", help="The tiled display to use for as the desktop.")
+	group.add_option("-B", "--enable-bezels", dest="enable_bezels", action="store_true", default=False, help="Enable bezel compensation by configuring invisible pixels in the areas of the monitor bezels. This option has no effect when projectors are used to drive the desktop. By default, you get a continuous desktop with no hidden pixels.")
+	group.add_option("-m", "--display-mode", dest="display_mode", help="The mode in which to run all the displays in.")
+	parser.add_option_group(group)
+	group = OptionGroup(parser, "Additional options")
+	group.add_option("--no-framelock", action="store_true", dest="disable_framelock", default=False, help="VizStack sets up framelock if this is enabled in the configuration of the used tiled display. Framelock provides hardware synchronization of all the displays in the Tiled Display. If your framelock chain or tiled display is not setup properly for framelock, then your desktop will not be started. Use this option if framelock setup fails, but you want to use the tiled display without framelock")
+	group.add_option("--show-usable-modes", dest="show_usable_modes", action="store_true", default=False, help="Prints out the usable modes that can be used with the requested tiled display.")
+	group.add_option("--show-usable-tiled-displays", dest="show_usable_tiled_displays", action="store_true", default=False, help="Prints out the names of the Tiled Displays that can be used with this script.")
+	group.add_option("-a", "--allocate-from", dest="allocate_from", action="append", help="Allocate the tiled display on this hostname. If you use this option multiple times, then a single tiled display from one of the specified hosts will be used. Note that the allocation is independent of the order in which the hostnames are specified on the command line.")
+	parser.add_option_group(group)
+	(options, args) = parser.parse_args(sys.argv[1:])
+
+	# Extra arguments are errors.
+	if len(args)>0:
+		print >>sys.stderr # empty line
+		print >>sys.stderr, "Invalid argument(s) on command line : %s"%(string.join(args,","))
+		print >>sys.stderr # empty line
+		parser.print_help()
+		sys.exit(-1)
+
+	# Name of tiled display must be specified
+	if (options.tiled_display_name is None) and (options.show_usable_tiled_displays is False):
+		print >>sys.stderr, "You need to specify a tiled display"
+		parser.print_help()
+		sys.exit(-1)
+
+	# Connect to the SSM
+	try:
+		ra = ResourceAccess()
+	except VizError, e:
+		print >>sys.stderr, "%s"%(str(e))
+		sys.exit(-1)
+
+	# Validate the host list if user asked for specific hosts
+	# This helps us print messages that make more sense for the
+	# user
+	if options.allocate_from is not None:
+		# Get a list of all hostnames from the SSM
+		nodeList = ra.queryResources(vsapi.VizNode())
+		validHostList = []
+		for node in nodeList:
+		        validHostList.append(node.getHostName())
+
+		# Find out what's not valid
+		invalidHostNames = filter(lambda x: x not in validHostList, options.allocate_from)
+
+		# And print them out
+		if len(invalidHostNames)>0:
+			print >>sys.stderr
+			print >>sys.stderr, "The following hostname(s) specified on the command line are invalid\n%s"%(invalidHostNames)
+			print >>sys.stderr
+			print >>sys.stderr, "Please ensure that they are indeed part of this system."
+			print >>sys.stderr
+			sys.exit(-1)
+
+	if options.show_usable_tiled_displays:
+		allTDs = ra.queryResources(vsapi.ResourceGroup())
+		suitableTDs = filter(lambda x: isTDSuitable(x)[0], allTDs)
+		if len(suitableTDs)>0:
+			print "The following tiled displays can be used with this script:"
+			for td in suitableTDs:
+				print td.getName()
+			sys.exit(0)
+		else:
+			print >>sys.stderr, "None of the defined tiled displays can be used with this script"
+			sys.exit(-1)
+
+	# Ensure that the Tiled Display is defined
+	tdMatch = ra.queryResources(vsapi.ResourceGroup(options.tiled_display_name))
+	if len(tdMatch)==0:
+		print >>sys.stderr, "Tiled Display '%s' does not exist."%(options.tiled_display_name)
+		sys.exit(-1)
+
+	tdToUse = tdMatch[0]
+
+	isSuitable, msg = isTDSuitable(tdToUse)
+	if not isSuitable:
+		print >>sys.stderr, msg
+		sys.exit(-1)
+
+	# Retrieve a list of modes valid for the display device used
+	displayModes = []
+	rg = tdToUse.getHandlerObject()
+	ddName = rg.getParam('display_device')
+	ddList = ra.getTemplates(vsapi.DisplayDevice(ddName))
+	dd = ddList[0]
+	displayModes = dd.getAllModes()
+
+	# Show list of valid modes if the user requested for it
+	if options.show_usable_modes:
+		print "Modes usable with tiled display '%s' are:"%(tdToUse.getName())
+		for mode in dd.getAllModes():
+			print mode['alias']
+		sys.exit(0)
+
+	# Validate user provided mode
+	if options.display_mode is not None:
+		allAliases = map(lambda x: x['alias'], dd.getAllModes())
+		if options.display_mode not in allAliases:
+			print >>sys.stderr, "Invalid display mode '%s'"%(options.display_mode)
+			sys.exit(-1)
+
+	# Allocate resources needed for the desktop
+	try:
+		if options.allocate_from is None:
+			potentialHostList = []
+		else:
+			potentialHostList = options.allocate_from
+
+		# Allocate the tiled display
+		alloc = ra.allocate([
+			  tdToUse
+		        ],
+		        potentialHostList
+		)
+	except vsapi.VizError, e:
+		print >>sys.stderr, "Unable to allocate resources needed for the desktop session."
+		print >>sys.stderr, "Reason: %s"%(str(e))
+		print >>sys.stderr
+		print >>sys.stderr, "Please try again later"
+		sys.exit(-1)
+
+	# If the user wants to use a different mode, then customize it now
+	rg = alloc.getResources()[0]
+	tdInUse = rg.getHandlerObject()
+
+	# Enable desktop bezels. This will ensure that running applications will
+	# skip over bezels in the right way!
+	if options.enable_bezels:
+		tdInUse.setParam('bezels', 'desktop')
+	else:
+		tdInUse.setParam('bezels', 'disable')
+
+	if options.display_mode is not None:
+		tdInUse.setParam('display_mode', options.display_mode)
+			
+	# Propagate the X server settings to the SSM
+	try:
+		alloc.setupViz(ra)
+	except ValueError, e:
+		print >>sys.stderr, "Failed to setup tiled display. Reason :%s"%(str(e))
+		# Deallocate resources.
+		ra.deallocate(alloc)
+		# Disconnect from the SSM - we're done!
+		ra.stop()
+		sys.exit(-1)
+
+	print "Starting Desktop for user on Tiled Display '%s'..."%(options.tiled_display_name)
+
+	try:
+		# Get the first GPU
+		srv = vsapi.extractObjects(Server, alloc.getResources())[0]
+		gpu0 = vsapi.extractObjects(GPU, alloc.getResources())[0]
+		sched = gpu0.getSchedulable()
+		# Use startx to start the desktop session.
+		# Use the "-disablexineramaextension" option to ensure the desktop spans all GPUs if Xinerama is enabled.
+		proc = sched.run(["startx", "--", "/usr/X11R6/bin/vs-X", srv.getDISPLAY(), "-disablexineramaextension", "-logverbose", "6"], outFile=open("/dev/null","w"), errFile=open("/dev/null","w"))
+
+		# Wait for the X servers to come up, default timeout
+		ra.waitXState(alloc, 1)
+		# Give user some information about what is running.
+		layout = tdInUse.getLayoutMatrix()
+		lastBlock = layout[-1][-1]
+		print
+		print "The desktop is running on host %s X server %s,\nwith a total resolution of %dx%d pixels"%(srv.getHostName(), srv.getDISPLAY(), lastBlock['rect_area'][2], lastBlock['rect_area'][3])
+		# Enable framelock if it is possible and not explicitly disabled
+		resList = alloc.getResources()
+		rg = resList[0]
+		td = rg.getHandlerObject()
+		if td.getParam('framelock') and (not options.disable_framelock):
+			if not vsutil.isFrameLockAvailable(resList):
+				print >>sys.stderr, "ERROR: Framelock is not available for this tiled display. Exiting..."
+				sys.exit(1)	
+			print "Enabling Frame Lock..."
+			try:
+				vsutil.enableFrameLock(resList)
+				print "Frame Lock setup successful."
+			except VizError, e:
+				print >>sys.stderr, "Exiting due to failure to enable frame lock. Reason: %s"%(str(e))
+				sys.exit(1)
+		print 
+		print "NOTE: The X server will be stopped and the resources"
+		print "will be cleaned up when you logout from the desktop"
+		print 
+		print "Pressing ^C does the job too..."
+		print 
+
+		# Wait for exit
+		proc.wait()
+	except KeyboardInterrupt, e:
+		pass
+
+	# Stop the real X server
+	alloc.stopViz(ra)
+
+	# Deallocate resources.
+	ra.deallocate(alloc)
+
+	# Disconnect from the SSM - we're done!
+	ra.stop()

@@ -1,0 +1,86 @@
+<?xml version="1.0" ?>
+
+<!--
+
+The AVO smart cable is the dongle with which we connect the graphics cards
+to the KVM.
+
+-->
+
+<display
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/displayconfig.xsd" >
+	<model>AVO Smart Cable</model>
+	<input>analog</input>
+	<edid>/opt/vizstack/share/templates/displays/edids/HP-AVO-SmartCable.bin</edid>
+	<edid_name>AVO Smart Cable</edid_name>
+	<default_mode>1024x768_60</default_mode>
+	<mode>
+		<type>edid</type> 
+		<alias>1024x768_60</alias>
+		<alias>1024x768</alias> <!-- default 1024x768. Runs at 60 Hz for max compatibility with RKM -->
+		<width>1024</width>
+		<height>768</height>
+		<refresh>60</refresh>
+	</mode>
+	<mode>
+		<type>edid</type> 
+		<alias>1024x768_75</alias>
+		<width>1024</width>
+		<height>768</height>
+		<refresh>75</refresh>
+	</mode>
+	<mode>
+		<type>edid</type> 
+		<alias>1280x1024_75</alias>
+		<width>1280</width>
+		<height>1024</height>
+		<refresh>75</refresh>
+	</mode>
+	<mode>
+		<type>edid</type> 
+		<alias>1280x1024_60</alias>
+		<alias>1280x1024</alias> <!-- default 1280x1024. Runs at 60 Hz for max compatibility with RKM -->
+		<width>1280</width>
+		<height>1024</height>
+		<refresh>75</refresh>
+	</mode>
+	<mode>
+		<type>edid</type>
+		<alias>1280x960_75</alias>
+		<width>1280</width>
+		<height>960</height>
+		<refresh>75</refresh>
+	</mode>
+	<mode>
+		<type>edid</type>
+		<alias>1280x960_60</alias>
+		<alias>1280x960</alias>
+		<width>1280</width>
+		<height>960</height>
+		<refresh>60</refresh>
+	</mode>
+	<mode>
+		<type>edid</type> 
+		<alias>1152x864_75</alias>
+		<width>1152</width>
+		<height>864</height>
+		<refresh>75</refresh>
+	</mode>
+	<mode>
+		<type>edid</type> 
+		<alias>1152x864_70</alias>
+		<width>1152</width>
+		<height>864</height>
+		<refresh>75</refresh>
+	</mode>
+	<mode>
+		<type>edid</type> 
+		<alias>1152x864_60</alias>
+		<alias>1152x864</alias>
+		<width>1152</width>
+		<height>864</height>
+		<refresh>60</refresh>
+	</mode>
+</display>

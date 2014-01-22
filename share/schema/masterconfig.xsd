@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+targetNamespace="http://www.hp.com"
+xmlns="http://www.hp.com"
+elementFormDefault="qualified" >
+
+<xs:element name="masterconfig">
+	<xs:complexType>
+		<xs:sequence>
+			<xs:element name="system" >
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="type" >
+							<xs:simpleType>
+								<xs:restriction base="xs:string" >
+									<xs:enumeration value="standalone" />
+									<xs:enumeration value="xc_cluster" />
+									<xs:enumeration value="cmu_cluster" />
+									<xs:enumeration value="sea_of_nodes" />
+								</xs:restriction>
+							</xs:simpleType>
+						</xs:element>
+						<xs:element name="master" type="xs:string" />
+						<xs:element name="master_port" type="xs:string" /> <!-- TCP port or path to Unix socket -->
+						<xs:element name="master_auth" >
+							<xs:simpleType>
+								<xs:restriction base="xs:string" >
+									<xs:enumeration value="None" />
+									<xs:enumeration value="Munge" />
+								</xs:restriction>
+							</xs:simpleType>
+						</xs:element>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+</xs:element>
+
+</xs:schema>

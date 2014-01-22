@@ -1,0 +1,18 @@
+Apply the following checks to packages before a release :
+
+- ALL files are present in the release:
+  - Scripts
+  - Template files and XML definitions
+  - Documentation
+    - Man pages
+    - HTML, PDF docs
+  
+- Package installs fine
+  - Check version numbers
+  - Run minimum checks
+
+- Run tests from the test directory. If something fails, there 
+  must be a good explanation for the failure.
+
+- Check the dependencies reported by the package. This list should match expectations.
+

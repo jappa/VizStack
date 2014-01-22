@@ -1,0 +1,41 @@
+
+The script run-cudabadnwidth-all-gpus.py runs the CUDA Bandwidth
+test on all GPUs in your system.
+
+Some setup is needed before it can be run:
+
+1. Each node must have a copy of the NVIDIA CUDA SDK,
+   and on the same path. Please compile the C code samples
+   so that the bandwidthTest program can be run.
+
+2. Script assumes that CUDA is installed in /usr/local/cuda
+
+The script run-specviewperf9-all-gpus.py runs the SPECViewPerf 9
+benchmark on all GPUs in your system.
+
+Some setup is needed before it can be run:
+
+1. Each node must have a copy of SPECViewPerf 9.0
+
+2. SPECViewPerf 9.0 must be located on the same
+   path on all the nodes
+
+3. There must be sufficient space in /tmp of each node
+   to accomodate <n> copies of SPECViewPerf 9.0.
+
+   Here, <n> is the number of GPUs on each individual
+   node.
+
+   Note that the amount of free space needed can be
+   quite large. The SPECViewPerf 9.0 directory is
+   typically large - e.g. it occupies 1.9 GB in my
+   system.
+
+   So, if you have 2 GPUs on a node, then you would
+   need 1.9*2 = 3.8 GB of free space
+
+   If you have 4 GPUs on a node, then that node would
+   need 1.9*4 = 7.6 GB of free space in /tmp
+
+4. It might be possible to reduce the space needed.
+   But this is left as an exercise for the reader !

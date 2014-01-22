@@ -1,0 +1,85 @@
+#!/usr/bin/env python
+# VizStack - A Framework to manage visualization resources
+
+# Copyright (C) 2009-2010 Hewlett-Packard
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+"""
+vs-configure-standalone
+
+Convenient script to configure VizStack in a standalone configuration.
+
+A standalone configuration means --
+  1. VizStack is deployed on this single node
+  2. Users will typically need to have login access to this node to get access to resources
+
+You don't need to install and configure munge if you want to run in this configuration.
+
+"""
+import os
+import sys
+import string
+from optparse import OptionParser
+
+parser = OptionParser(description = 
+"""Configures this machine as a standalone VizStack node. This is a quick way of instantly converting a single machine with GPUs into a sharable visualization resource. Given the ease of configuration, this also offers a low-overhead (and impact) way of trying out the VizStack software.
+
+After you configurate the system this way, you need to run the VizStack SSM. These two simple steps will allow you to 
+ 1. Provide access to multiple remote visualization users (depending on how many GPUs you have)
+ 2. Use the GPUs to drive one or more displays in a configuration of your choice
+ 3. Mix of (1) & (2), again depending on the number of GPUs at your disposal.
+
+Ensure that you have stopped all X servers before running this script. The easiest way to ensure this is to run the command "telinit 3"
+""")
+parser.add_option("-r", "--remote-network", dest="remote_network", help="Use this option to specify the network of the interface that you want to use for HP RGS(Remote Graphics Software) or TurboVNC connections. The value needs to be in a.b.c.d notation, typically with trailing zeros. E.g., 15.146.228.0 or 192.168.1.0, etc")
+parser.add_option("-S", "--gpu-share-count", type="int", default=2, dest="gpu_share_count", help="Configure each GPU to be sharable by these many users. This defaults to 2. You may share a GPU with a maximum of 8 users. Use a value of 1 to disable GPU sharing completely.")
+parser.add_option("-i", "--ignore-display-device", dest="ignore_display_device", action="append", help="Ignore this type of display device. This is typically used to ignore the connected KVM dongles. This option may be used multiple times.")
+parser.add_option("-x", "--exclude-sharing", action="append", dest="exclude_sharing", help="Do not share the GPUs on this node. This option may be used multiple times.")
+(options, args) = parser.parse_args(sys.argv[1:])
+
+if len(args)>1:
+	parser.print_help()
+	sys.exit(-1)
+
+cmd = ['/opt/vizstack/sbin/vs-configure-system']
+
+if options.remote_network is not None:
+	cmd.append("--remote-network")
+	cmd.append(options.remote_network)
+
+if options.gpu_share_count is not None:
+	cmd.append("--gpu-share-count")
+	cmd.append("%s"%(options.gpu_share_count))
+
+if options.ignore_display_device is not None:
+	for opt in options.ignore_display_device:
+		cmd.append("--ignore-display-device")
+		cmd.append('"%s"'%(opt))
+
+if options.exclude_sharing is not None:
+	for opt in options.exclude_sharing:
+		cmd.append("--exclude-sharing")
+		cmd.append('"%s"'%(opt))
+cmd = cmd + ['--fast-network', '127.0.0.1']
+cmd = cmd + ['-s','local', 'localhost']
+cmd = string.join(cmd, " ")
+ret = os.system(cmd)
+if ret != 0:
+	print >>sys.stderr, "Failed to configure standalone configuration"
+	sys.exit(ret)
+
+sys.exit(0)
+

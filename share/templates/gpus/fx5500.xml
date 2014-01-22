@@ -1,0 +1,25 @@
+<?xml version="1.0" ?>
+
+<gpu 
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/gpuconfig.xsd">
+
+		<model>Quadro FX 5500</model>
+		<vendor>NVIDIA Corporation</vendor>
+		<scanout_caps>
+			<index>0</index>
+			<type>digital</type>
+			<type>analog</type>
+		</scanout_caps>
+		<scanout_caps>
+			<index>1</index>
+			<type>digital</type>
+			<type>analog</type>
+		</scanout_caps>
+		<limits>
+			<max_width>4096</max_width>
+			<max_height>4096</max_height>
+		</limits>
+
+</gpu>

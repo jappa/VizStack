@@ -1,0 +1,729 @@
+#!/usr/bin/env python
+
+# VizStack - A Framework to manage visualization resources
+
+# Copyright (C) 2009-2010 Hewlett-Packard
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+#
+# remotevizconnector
+#
+# Viz Connector for use with VizStack.
+# Allocates and connects users to RGS or TurboVNC sessions.
+# (Type of session is selected by a command line argument)
+#
+# Uses wxWidgets for the GUI. Uses SSH to connect to
+# the machine where the VizStack SSM runs.
+
+# Ignore warnings that affect the crypt module.
+# These show up bad on the EXE
+import warnings
+def ignoreWarnings(message, category, filename, lineno, file=None, line=None):
+	pass
+warnings.showwarning = ignoreWarnings
+
+# import wxpython
+# starting with 2.5.3.0, multiple version installs are
+# possible. See http://wiki.wxpython.org/index.cgi/MultiVersionInstalls
+# 
+# I built an RPM from the source RPM on wxpython.org
+# and a direct "import wx" stopped working. So, I had to import
+# wxversion. This should import the default wx - not a problem for us
+# since we don't make use of functionality from specific versions.
+#
+# Older versions of wx will not be a problem, since we ignore the 
+# import error
+try:
+	# The multiversioninstalls page recommends a check
+	# of "if not hasattr(sys,'frozen')" to avoid import 
+	# of wxversion. This doesn't seem to be necessary,
+	# and hence is skipped.
+	import wxversion
+except ImportError, e:
+	pass
+
+import wx
+import wx.lib.newevent
+
+from sshconnector import *
+import threading
+import platform
+import tempfile
+import os
+import sys
+import string
+from optparse import OptionParser
+
+# Platform specific modules
+if platform.system() == 'Windows':
+	import win32process # Windows process
+	import win32api # for user name, registry functions
+	import win32net # for domain name
+	import win32con
+else:
+	import signal
+
+if platform.system() == 'Windows':
+	# g_tvnc_viewerPath = "G:\\Program Files\\TurboVNC\\vncviewer.exe"
+	# look at TurboVNC location at 
+	# HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\TurboVNC_is1
+	try:
+		key = win32api.RegOpenKeyEx(win32con.HKEY_LOCAL_MACHINE, "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\TurboVNC_is1", 0, win32con.KEY_READ)
+		tvnc_installPath = '%s'%(win32api.RegQueryValueEx(key, "InstallLocation")[0])
+		g_tvnc_viewerPath =  os.path.join(tvnc_installPath, "vncviewer.exe")
+		key.close()
+	except:
+		# could not detect TVNC installation
+		g_tvnc_viewerPath = ""
+
+	# HKEY_LOCAL_MACHINE\SOFTWARE\Hewlett-Packard\HP Remote Graphics Receiver\5.1.0
+	# HKEY_LOCAL_MACHINE\SOFTWARE\Hewlett-Packard\HP Remote Graphics Receiver\5.1.2
+	# must have subkey "InstallDir" which is missing :-(
+	# 5.1.2, 5.1.5 has the following key --
+	# HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{16FC3056-90C0-4757-8A68-64D8DA846ADA}\InstallLocation
+	try:
+		key = win32api.RegOpenKeyEx(win32con.HKEY_LOCAL_MACHINE, "SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{16FC3056-90C0-4757-8A68-64D8DA846ADA}", 0, win32con.KEY_READ)
+		g_rgs_installPath = '%s'%(win32api.RegQueryValueEx(key, "InstallLocation")[0])
+		g_rgs_viewerPath =  os.path.join(g_rgs_installPath, "rgreceiver.exe")
+		key.close()
+	except:
+		# could not detect RGS installation
+		g_rgs_viewerPath = ""
+		g_rgs_installPath = ""
+else:
+	g_tvnc_viewerPath = "/opt/TurboVNC/bin/vncviewer"
+	g_rgs_viewerPath = "/opt/hpremote/rgreceiver/rgreceiver.sh"
+	g_rgs_installPath = "/opt/hpremote/rgreceiver"
+
+# Type of client
+CLIENT_RGS = 0
+CLIENT_TVNC = 1
+g_clientType = CLIENT_RGS # default to RGS
+
+#
+# Typical resolutions used by people
+#
+g_typicalResolutions = [
+		"1280x1024",
+		"1600x1200",
+		"2560x1600",
+		"1024x768"
+		]
+
+g_defaultResolution = g_typicalResolutions[0]
+
+# Create an event for us to use
+(GUIActionEvent, EVT_GUI_ACTION) = wx.lib.newevent.NewEvent()
+
+# GUI actions
+OP_FINISHED = 0
+OP_GET_PASSWORD = 1
+OP_SHOW_ERRMSG = 2
+OP_ALLOCATION_RESULT = 4
+OP_CLIENT_DONE = 5
+OP_UPDATE_STATUSBAR = 6
+OP_REMOTE_MESSAGE = 7
+
+def getUserName():
+	if platform.system() == 'Windows':
+		userName = win32api.GetUserName()
+	else:
+		userName = os.getlogin()
+	return userName
+
+def CreateDirectoryFile(dirfile, hosts):
+	"""
+	Create a directory file that can be used with RGS Client
+	"""
+	f = open(dirfile,'w')
+
+	userName = getUserName()
+	if platform.system() == 'Windows':
+		domainName = win32net.NetGetJoinInformation()[0]
+	else:
+		domainName = 'UNIX'
+
+	# Directory file will contain
+	# domainName userName host1 host2 host3 ...
+	print >>f, "%s %s %s"%(domainName, userName, string.join(hosts, " "))
+
+	f.close()
+
+
+def GenerateRGSCmd(dirfile, width, height, htiles, vtiles):
+	"""
+	Create the command line that will be used to launch the RGS client
+	"""
+	global g_rgs_viewerPath
+	cmd = [g_rgs_viewerPath, '-directory', '%s'%(dirfile)]
+	if htiles>1 or vtiles>1:
+		cmd = cmd.append('-Rgreceiver.IsBordersEnabled=0')
+		idx = 0
+		for col in range(vtiles):
+			for row in range(htiles):
+				cmd.append('-Rgreceiver.Session.%d.RemoteDisplayWindow.X=%d'%(idx, col*width))
+				cmd.append('-Rgreceiver.Session.%d.RemoteDisplayWindow.Y=%d'%(idx, col*height))
+				idx = idx+1
+	return cmd
+
+
+# RunClient
+class runClient(threading.Thread):
+	def __init__(self, args, notifyWin):
+		global g_rgs_viewerPath, g_rgs_installPath, g_tvnc_viewerPath, g_clientType
+		threading.Thread.__init__(self)
+		self.notifyWin = notifyWin
+		self.args = args
+		self.done = False
+		self.started = False
+		self.process = None
+		self.terminate = False
+		self.tempRGSFile = None
+		if platform.system()=='Windows':
+			self.isWindows = True
+		else:
+			self.isWindows = False
+		if g_clientType == CLIENT_RGS:
+			self.startupDir = g_rgs_installPath # RGS doesn't start on windows if the working directory != RGS directory :-(
+			# create a temporary file
+			self.tempRGSFile = tempfile.mkstemp()
+			os.close(self.tempRGSFile[0])
+			self.tempRGSFile = self.tempRGSFile[1]
+			# temporary file becomes the directory file
+			CreateDirectoryFile(self.tempRGSFile, [self.args])
+			self.cmdArgs = GenerateRGSCmd(self.tempRGSFile, 0, 0, 1, 1)
+		else:
+			self.cmdArgs = [g_tvnc_viewerPath, self.args]
+			self.startupDir = os.getcwd()
+	def run(self):
+		self.started = True
+		self.done = False
+		if self.isWindows:
+			# run process here...
+			(self.hProcess, hThread, dwProcessId, dwThreadId) = win32process.CreateProcess(None, string.join(self.cmdArgs, " "), None, None, 0, 0, None, self.startupDir, win32process.STARTUPINFO())
+		else:
+			# TODO: spawnvp versus spawn args !
+			self.pid = os.spawnvp(os.P_NOWAIT, self.cmdArgs[0], self.cmdArgs)
+		while 1:
+			if self.terminate == True:
+				if self.isWindows:
+					win32process.TerminateProcess(self.hProcess, -1)
+					break # Terminate is guaranteed to work, so exit here
+				else:
+					os.kill(self.pid, signal.SIGKILL)
+			time.sleep(0.1)
+			if self.isWindows:
+				if (win32process.GetExitCodeProcess(self.hProcess))==259:
+					# 259 => STILL_ALIVE
+					continue
+				else:
+					break
+			else:
+				ret = os.waitpid(self.pid, os.WNOHANG)
+				if ret[0]==self.pid:
+					break
+		# Delete the file since we no longer need it
+		if self.tempRGSFile is not None:
+			os.unlink(self.tempRGSFile)
+			self.tempRGSFile = None
+		self.done = True
+		self.started = False
+		self.terminate = False
+		self.pid = None
+		self.hProcess = None
+		evt = GUIActionEvent(action=OP_CLIENT_DONE)
+		wx.PostEvent(self.notifyWin, evt)
+
+	def isRunning(self):
+		return self.started
+
+	def doTerminate(self):
+		if not self.done:
+			self.terminate = True
+			while self.isRunning():
+				time.sleep(0.1)
+			self.join()
+
+
+def promptUserForPassword(username, win):
+	"""
+	Prompt user for password in a dialog
+	"""
+	# Since we'll be called from a different thread, we can't use wx calls from here
+	# So we take a way out. We create a python event, and dispatch a wx event to the 
+	# main GUI window. The GUI window looks at the event, prompts for the password,
+	# and passes the value back to us!
+	event = threading.Event()
+	evt = GUIActionEvent(action=OP_GET_PASSWORD, param1=username, param2=event)
+	# Send event to GUI thread
+	wx.PostEvent(win, evt)
+	# wait for response to our password request
+	event.wait()
+
+	# Return the result
+	return evt.password
+
+
+def doConnect(hostname, username, resolution, win, dedicatedGPU, dedicatedNode):
+	"""
+	Function to do the connection part
+	"""
+	try:
+		c = SSHConnector(hostname, username, promptUserForPassword, callbackdata=win)
+	except ConnectorError, e:
+		evt = GUIActionEvent(action=OP_SHOW_ERRMSG, param1=e.getErrorMessage())
+		wx.PostEvent(win, evt)
+		return None
+
+	evt = GUIActionEvent(action=OP_UPDATE_STATUSBAR, param1="Allocating Session...")
+	wx.PostEvent(win, evt)
+	# Allocate the session
+	try:
+		if g_clientType==CLIENT_RGS:
+			exe = "viz-rgs"
+		else:
+			exe = "viz-tvnc"
+		cmd = "/opt/vizstack/bin/%s --automation -g %s"%(exe,resolution)
+		if dedicatedGPU:
+			cmd += " -x"
+		if dedicatedNode:
+			cmd += " -N"
+		c.StartDialog(cmd, exe)
+	except ConnectorError, e:
+		try:
+			c.Close()
+		except:
+			pass
+
+		evt = GUIActionEvent(action=OP_SHOW_ERRMSG, param1=e.getErrorMessage())
+		wx.PostEvent(win, evt)
+		return None
+
+	# Get the allocation response 
+	response = c.ReadXML()
+	evt = GUIActionEvent(action=OP_ALLOCATION_RESULT, param1=response, param2=c)
+	wx.PostEvent(win, evt)
+	return None
+
+def waitExit(conn, win):
+	try:
+		msgDom = conn.ReadXML()
+	except:
+		pass
+	evt = GUIActionEvent(action=OP_REMOTE_MESSAGE, param1=msgDom)
+	wx.PostEvent(win, evt)
+	return None
+
+# Request exit request to service
+def sendExit(connection):
+	"""
+	Inform the remote app to exit, and do any needed
+	cleanup
+	"""
+	connection.Write('exit\n')
+
+class WorkerThread(threading.Thread):
+	def __init__(self, win, func):
+		threading.Thread.__init__(self)
+		self.func = func
+		self.win = win
+		self.ret = None
+	def run(self):
+		self.ret = self.func()
+		evt = GUIActionEvent(action=OP_FINISHED)
+		wx.PostEvent(self.win, evt)
+	def getRetVal(self):
+		return self.ret
+	
+class MyStatusBar(wx.StatusBar):
+	"""
+	Customized status bar
+	"""
+	def __init__(self, parent):
+		wx.StatusBar.__init__(self, parent, -1)
+		self.SetFieldsCount(3)
+		self.SetStatusWidths([-8,-3,-1])
+		self.gauge = wx.Gauge(self, -1)
+
+		self.Bind(wx.EVT_SIZE, self.onSize)
+		r= self.GetFieldRect(1)
+		self.gauge.SetPosition((r.x,r.y))
+
+		self.timer = wx.Timer(self)
+		self.Bind(wx.EVT_TIMER, self.timerHandler)
+
+	def startProgressAnim(self, msg):
+		self.SetStatusText(msg)
+		self.timer.Start(100)
+
+	def timerHandler(self, evt):
+		self.gauge.Pulse()
+
+	def stopProgressAnim(self, msg='Ready'):
+		self.SetStatusText(msg)
+		self.gauge.SetValue(0)
+		self.timer.Stop()
+
+	def onSize(self, evt):
+		r= self.GetFieldRect(1)
+		self.gauge.SetPosition((r.x+2,r.y+2))
+		self.gauge.SetSize((r.width-4,r.height-4))
+		self.sizeChanged = False
+
+class MyGUI(wx.Frame):
+	def setConnectInfo(self, value):
+		self.hostInput.SetValue(value)
+	def __init__(self, parent, id, title):
+		wx.Frame.__init__(self, parent, id, title)
+
+		# Variables to track our state
+		self.isConnected = False
+		self.serverConn = None
+		self.workerThread = None
+		self.clientThread = None
+		self.waitServerExitThread = None
+
+		# Add a status bard
+		self.statusBar = MyStatusBar(self)
+		self.statusBar.SetStatusText("Ready")
+		self.SetStatusBar(self.statusBar)
+
+		# A panel to contain everything
+		self.panel = wx.Panel(self, wx.ID_ANY)
+
+		# GUI elements
+		label = wx.StaticText(self.panel, wx.ID_ANY, "VizStack Access (user@host). Default username is %s"%(getUserName()))
+		self.hostInput = wx.TextCtrl(self.panel, wx.ID_ANY, size=(150,-1), style=wx.TE_PROCESS_ENTER) # Height of -1 indicates "use the default"
+		self.hostInput.SetToolTipString("Enter your username & VizStack master host here")
+		self.connectButton = wx.Button(self.panel, wx.ID_ANY, "Go!")
+		self.connectButton.SetToolTipString("Click to get your desktop!")
+		self.disconnectButton = wx.Button(self.panel, wx.ID_ANY, "Terminate Session")
+		self.disconnectButton.SetToolTipString("Kills your desktop. Logging out of the desktop is recommended")
+		if g_clientType==CLIENT_RGS:
+			buttonText = "Start RGS Receiver"
+		else:
+			buttonText = "Start TurboVNC Client"
+		self.clientButton = wx.Button(self.panel, wx.ID_ANY, buttonText)
+		self.optionsCheckBox = wx.CheckBox(self.panel, wx.ID_ANY, "More Options")
+
+		self.optionsPanel = wx.Panel(self.panel)
+		optionsStaticBox = wx.StaticBox(self.optionsPanel, wx.ID_ANY, "Options")
+		resLabel = wx.StaticText(self.optionsPanel, wx.ID_ANY, "Desktop Resolution")
+		self.resEntry = wx.ComboBox(self.optionsPanel, wx.ID_ANY, style=wx.CB_DROPDOWN, choices=g_typicalResolutions, value=g_defaultResolution)
+		self.resEntry.SetToolTipString("Select from one of these resolutions. You may\ntype in your own <width>x<height> value as well.\n\nNote that the desktop width needs to be a multiple of 8.")
+		self.dedicatedNode = wx.CheckBox(self.optionsPanel, wx.ID_ANY, "Dedicated Node")
+		if g_clientType==CLIENT_TVNC:
+			self.exclusiveGPU = wx.CheckBox(self.optionsPanel, wx.ID_ANY, "Dedicated GPU") 
+		else:
+			self.exclusiveGPU = None
+		if g_clientType==CLIENT_TVNC:
+			self.rcCheckBox = wx.CheckBox(self.optionsPanel, wx.ID_ANY, "TurboVNC Reverse Connection")
+			self.rcCheckBox.Enable(False)
+		else:
+			self.rcCheckBox = None
+
+		# Define the actions
+		self.optionsCheckBox.Bind(wx.EVT_CHECKBOX, self.optionsClicked)
+		
+		# A grid bag sizer layout so that elements can span one(or more) rows/columns
+		bagSizer = wx.GridBagSizer(hgap=0, vgap=0)
+		# Col 0 is growable
+		bagSizer.AddGrowableCol(0)
+		# Allocate positions on the grid bag to GUI elements
+		#
+		# First row, occupied fully by label
+		bagSizer.Add(label, pos=(0,0), span=(1,4), flag=wx.ALL|wx.EXPAND, border=5)
+		# Second row occupied by host input value
+		bagSizer.Add(self.hostInput, pos=(1,0), span=(1,4), flag=wx.ALL|wx.EXPAND, border=5)
+		# Third row consists of the action buttons
+		bagSizer.Add(self.optionsCheckBox, pos=(2,0), span=(1,1), flag=wx.ALL|wx.EXPAND, border=5)
+		bagSizer.Add(self.disconnectButton, pos=(2,1), span=(1,1), flag=wx.ALL|wx.EXPAND, border=5)
+		bagSizer.Add(self.clientButton, pos=(2,2), span=(1,1), flag=wx.ALL|wx.EXPAND, border=5)
+		bagSizer.Add(self.connectButton, pos=(2,3), span=(1,1), flag=wx.ALL|wx.EXPAND, border=5)
+		# Fourth row consists of the advanced panel
+		bagSizer.Add(self.optionsPanel, pos=(3,0), span=(1,4), flag=wx.ALL|wx.EXPAND, border=5)
+		bagSizer.Hide(self.optionsPanel)
+		# Static Box sizer to manage items inside the static box
+		optionsStaticBoxSizer = wx.StaticBoxSizer(optionsStaticBox, wx.HORIZONTAL)
+		# Setup the contents of the options box
+		optionsGBS = wx.GridBagSizer(hgap=0, vgap=0)
+		optionsGBS.Add(resLabel, pos=(0,0), span=(1,1), flag=wx.ALL|wx.EXPAND, border=5)
+		optionsGBS.Add(self.resEntry, pos=(0,1), span=(1,3), flag=wx.ALL|wx.EXPAND, border=5)
+		optionsGBS.Add(self.dedicatedNode, pos=(1,0), span=(1,4), flag=wx.ALL|wx.EXPAND, border=5)
+		self.dedicatedNode.Bind(wx.EVT_CHECKBOX, self.dedicatedNodeClicked)
+		if g_clientType==CLIENT_TVNC:
+			optionsGBS.Add(self.rcCheckBox, pos=(2,0), span=(1,4), flag=wx.ALL|wx.EXPAND, border=5)
+			optionsGBS.Add(self.exclusiveGPU, pos=(3,0), span=(1,4), flag=wx.ALL|wx.EXPAND, border=5)
+		optionsStaticBoxSizer.Add(optionsGBS, 0, wx.ALL|wx.EXPAND)
+		self.optionsPanel.SetSizer(optionsStaticBoxSizer)
+		#
+		# Add the whole GUI into the main sizer
+		mainSizer = wx.BoxSizer(wx.VERTICAL)
+		mainSizer.Add(bagSizer, 0, wx.ALL|wx.EXPAND, 5)
+		self.panel.SetSizer(mainSizer)
+		self.mainSizer = mainSizer
+		self.bagSizer = bagSizer
+
+		# Set the size of our GUI
+		self.__resize()
+		self.SetMinSize(self.GetSize())
+
+		# Setup exit callback
+		self.Bind(wx.EVT_CLOSE, self.onExit)
+
+		# Handlers & update functions
+		self.resEntry.Bind(wx.EVT_TEXT, self.updateControls)
+		self.hostInput.Bind(wx.EVT_TEXT, self.updateControls)
+		self.hostInput.Bind(wx.EVT_TEXT_ENTER, self.onConnect)
+		self.connectButton.Bind(wx.EVT_BUTTON, self.onConnect)
+		self.disconnectButton.Bind(wx.EVT_BUTTON, self.onDisconnect)
+		self.clientButton.Bind(wx.EVT_BUTTON, self.onClientClick)
+		self.Bind(EVT_GUI_ACTION, self.updateGUI)
+		self.updateControls()
+
+	def __resize(self):
+		self.mainSizer.Fit(self)
+
+	def onExit(self, event):
+		if self.workerThread is not None:
+			# Can't exit when the worker thread is running
+			return
+
+		self.onDisconnect(None)
+
+		self.Destroy()
+		sys.exit(0)
+
+	def dedicatedNodeClicked(self, event):
+		if self.exclusiveGPU is not None:
+			# If dedicated node checkbox is enabled, then exclusive GPU makes no sense!
+			if self.dedicatedNode.GetValue()==True:
+				self.exclusiveGPU.Enable(False)
+			else:
+				self.exclusiveGPU.Enable(True)
+
+	def optionsClicked(self, event):
+		if self.optionsCheckBox.GetValue()==True:
+			self.bagSizer.Show(self.optionsPanel, True)
+		else:
+			self.bagSizer.Hide(self.optionsPanel, True)
+
+		self.__resize()
+
+	def __showEM(self, msg, heading):
+		dlg = wx.MessageDialog(self, msg, heading, style=wx.OK|wx.ICON_EXCLAMATION)
+		dlg.ShowModal()
+
+	def onClientClick(self, event):
+		self.clientThread=runClient(self.allocationHost, self)
+		self.clientThread.start()
+		if g_clientType == CLIENT_RGS:
+			self.statusBar.SetStatusText("RGS Client started for '%s'"%(self.allocationHost))
+		else:
+			self.statusBar.SetStatusText("TurboVNC Client started for '%s'"%(self.allocationHost))
+		self.updateControls()
+
+	def onConnect(self, event):
+		connectInfo = self.hostInput.GetValue()
+		resolution = self.resEntry.GetValue().lstrip().rstrip()
+		if self.exclusiveGPU is not None:
+			dedicatedGPU = self.exclusiveGPU.GetValue()
+		else:
+			dedicatedGPU = False
+
+		dedicatedNode = self.dedicatedNode.GetValue()
+
+		ciParts = connectInfo.split("@")
+		if (len(ciParts)>2) or ((len(ciParts)==2) and (len(ciParts[1])==0)):
+			self.__showEM("Connection information must be in the format user@host or host", "Invalid Input")
+			return
+
+		if len(ciParts)==1:
+			hostname = ciParts[0]
+			username = getUserName()
+		else:
+			hostname = ciParts[1]
+			username = ciParts[0]
+		# Disable GUI interaction till the whole process finishes
+		self.panel.Enable(False)
+		self.statusBar.startProgressAnim("Connecting...")
+		# Start worker thread to do the job
+		self.workerThread = WorkerThread(self, lambda: doConnect(hostname, username, resolution, self, dedicatedGPU, dedicatedNode))
+		self.workerThread.start()
+
+	def onDisconnect(self, event):
+
+		# If the connection to the server is active, then
+		# we have a live allocation
+		if self.serverConn is not None:
+			dlg = wx.MessageDialog(self, "All running applications will be terminated and you\nwill lose any unsaved work.\n\nAre you sure you want to close the session?", "Allocated session is active", style=wx.YES_NO|wx.ICON_INFORMATION)
+			ret = dlg.ShowModal()
+			if ret != wx.ID_YES:
+				return
+
+		self.__disconnect()
+
+	def __disconnect(self):
+		# Close the GUI
+		if self.clientThread is not None:
+			if self.clientThread.isRunning():
+				self.clientThread.doTerminate()
+			self.clientThread = None
+
+		# Close the connection to the server
+		if self.serverConn:
+			sendExit(self.serverConn)
+			try:
+				self.serverConn.Close()
+			except ConnectionError, e:
+				pass
+
+		# Reset vars
+		self.isConnected = False
+		self.serverConn = None
+		self.updateControls()
+		self.statusBar.SetStatusText('Ready')
+		self.panel.Enable(True)
+
+	def updateControls(self, unused=None):
+		"""
+		Update controls to be consistent w.r.t current values in them
+		"""
+		# Input field must be disabled if we are connected
+		self.hostInput.Enable(not self.isConnected)
+		# The "connect" button should be enabled only if we aren't connected
+		# and there's some text in the host input field
+		self.connectButton.Enable((not self.isConnected) and (len(self.hostInput.GetValue())>0))
+		# Disconnect button enabled only if we are connected
+		self.disconnectButton.Enable(self.isConnected)
+		if (self.clientThread is None) and self.isConnected:
+			self.clientButton.Enable(True)
+		else:
+			self.clientButton.Enable(False)
+
+
+	def updateGUI(self, event):
+		if event.action==OP_FINISHED:
+			# If we're done, we'll enable the GUI
+			self.panel.Enable(True)
+			self.updateControls()
+			# and call join on the worker thread
+			if self.workerThread is not None:
+				self.workerThread.join()
+				self.workerThread = None
+			# and stop the animation
+			if self.isConnected!=True:
+				self.statusBar.stopProgressAnim("Ready")
+		if event.action==OP_GET_PASSWORD:
+			self.statusBar.startProgressAnim("Authenticating...")
+			# Prompt user for password
+			dlg = wx.TextEntryDialog(self, event.param1,"User Authentication", style=wx.OK|wx.CANCEL|wx.TE_PASSWORD)
+			if dlg.ShowModal()==wx.ID_OK:
+				event.password = dlg.GetValue()
+			else:
+				event.password = None
+			event.param2.set()
+		elif event.action==OP_SHOW_ERRMSG:
+			# Display the error message
+			self.__showEM(event.param1, "Error")
+		elif event.action==OP_UPDATE_STATUSBAR:
+			# Display the error message
+			self.statusBar.SetStatusText(event.param1)
+		elif event.action==OP_ALLOCATION_RESULT:
+			self.serverConn = event.param2
+			allocDoc = event.param1.documentElement
+			errorNodes = allocDoc.getElementsByTagName("error")
+			if len(errorNodes)>0:
+				self.serverConn.Close()
+				self.serverConn = None
+				self.__showEM(errorNodes[0].firstChild.nodeValue.encode('iso-8859-1'), "Failed to allocate session")
+			else:
+				self.allocationHost = allocDoc.getElementsByTagName("connectTo")[0].firstChild.nodeValue.encode('iso-8859-1')
+				self.isConnected = True
+				if g_clientType == CLIENT_RGS:
+					self.statusBar.stopProgressAnim("RGS Client running for '%s'"%(self.allocationHost))
+				else:
+					self.statusBar.stopProgressAnim("TurboVNC Client running for '%s'"%(self.allocationHost))
+				self.onClientClick(None)
+				# Check the server connection once a second
+				self.waitServerExitThread = WorkerThread(self, lambda: waitExit(self.serverConn, self))
+				self.waitServerExitThread.start()
+		elif event.action==OP_CLIENT_DONE:
+			# There may be slight race conditions here, so we check for variables
+			# explicitly
+			if self.clientThread is not None:
+				self.clientThread.join()
+				self.clientThread = None
+			self.updateControls()
+			if self.isConnected == True:
+				self.statusBar.SetStatusText("Allocated session is  '%s'"%(self.allocationHost))
+		elif event.action==OP_REMOTE_MESSAGE:
+			self.__disconnect()
+
+class MyApp(wx.App):
+	def OnInit(self):
+		# Create the frame for this app
+		if g_clientType == CLIENT_RGS:
+			title = "Viz Connector for HP RGS"
+		else:
+			title = "Viz Connector for TurboVNC"
+		self.gui = MyGUI(None, -1, title)
+		self.gui.Show(True)
+
+		# Set the frame as our top level window
+		self.SetTopWindow(self.gui)
+
+		return True # Success!
+
+
+# Parse command line args
+parser = OptionParser()
+parser.add_option("--rgs", action="store_true", default=True, dest="client", help="Connect using the HP Remote Graphics receiver (default).")
+parser.add_option("--tvnc", action="store_false", dest="client", help="Connect using the TurboVNC client.")
+
+#
+# TODO: add additional options here and automatically connect if all options are given !
+#
+
+(options, args) = parser.parse_args(sys.argv[1:])
+
+if options.client == True:
+	g_clientType = CLIENT_RGS
+else:
+	g_clientType = CLIENT_TVNC
+
+# Create the app object
+app = MyApp(0)
+
+if len(args)>1:
+	dlg = wx.MessageDialog(None, "Only one argument is permitted : the connection information in the format user@host", "Too many input arguments", wx.ICON_EXCLAMATION)
+	dlg.ShowModal()
+	sys.exit(-1)
+elif len(args)==1:
+	app.gui.setConnectInfo(args[0])
+
+if g_rgs_viewerPath == "" and g_clientType==CLIENT_RGS:
+	dlg = wx.MessageDialog(None, "Could not detect an installation of the HP RGS receiver.\nYou need to install RGS to use this utility.", "Client not installed", wx.ICON_EXCLAMATION)
+	dlg.ShowModal()
+	sys.exit(-1)
+
+if g_tvnc_viewerPath == "" and g_clientType==CLIENT_TVNC:
+	dlg = wx.MessageDialog(None, "Could not detect an installation of the TurboVNC receiver.\nYou need to install TurboVNC to use this utility.", "Client not installed", wx.ICON_EXCLAMATION)
+	dlg.ShowModal()
+	sys.exit(-1)
+
+
+app.MainLoop()

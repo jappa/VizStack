@@ -1,0 +1,363 @@
+#!/usr/bin/env python
+
+# VizStack - A Framework to manage visualization resources
+
+# Copyright (C) 2009-2010 Hewlett-Packard
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+"""
+viz_info
+
+Query allocation information from the System State Manager
+"""
+import vsapi
+import time
+from xml.dom import minidom
+from pprint import pprint
+import sys
+import os
+import time
+import optparse
+import tempfile
+import subprocess
+import copy
+import string
+from sets import Set
+import vsutil
+import calendar
+import time
+
+class OptionParser (optparse.OptionParser):
+	def check_required (self, opt):
+		"""
+		Check for command-line arguments that are mandatory. Accepts the arguments that are mandatory
+		as arguments.
+		"""
+		option = self.get_option(opt)
+		# Assumes the option's 'default' is set to None!
+		if getattr(self.values, option.dest) is None:
+			self.print_help()
+			self.error("%s option not supplied" %(option))
+
+            
+def parseArgs(arg_list):
+	parser = OptionParser()
+	parser.add_option("-r", "--resources", action="store_true", dest="show_resources", help="List all the resource that are available")
+	parser.add_option("-a", "--all", action="store_true", dest="all_resources", help="List all the resource groups that are available ")
+	parser.add_option("-f", "--free", action="store_true", dest="free", help="List of all the resource groups that are free.")
+	parser.add_option("-b", "--busy", action="store_true", dest="busy", help="List of all the resource groups that are busy.")
+	(options, args) = parser.parse_args(sys.argv[1:])
+	return (options, args)
+
+
+# allocationList is a list of lists, with the format [['allocation id', 'user name', 'resource list'],[..]]
+def printTable(allocationList, header, expandFuncCol=None, expandFunc = None):
+	# The header inserted identifies the fields in the inner list, in this case
+	# ["Allocation Id","User Name","Resource List"]
+	allocationList.insert(0, header)
+	# A column is all the elements of the same type (same index also) across all the inner lists
+	# [[1, 'bob', [resources...]],[2, 'mike', [resources...]]], column of user names will be
+	# ['bob', 'mike',...].
+	# The below list is used to hold the lengths of the longest strings in each column.
+	maxWidthsInEachCol = []
+	# The total number of elements in each sub-list, this will be a constant, in the above example it is 3
+	num_elements = len(allocationList[0])
+	# For each column
+	for i in range(num_elements):
+		# The length of the elements converted to strings (8 is strlen 1, 343 is strlen 3)
+		length_list = []
+		# Go through each row of the column, a way to step through a single field, example
+		# a way to step through only usernames
+		for allocation in allocationList:
+			# Store the strlen of each element in the i'th column on the list
+			length_list.append(len(str(allocation[i]) + "  ")) # Two space between elements (padding)
+		# Find the longest string in this column and store this, the format width of the column will be this
+		maxWidthsInEachCol.append(max(length_list))
+	for allocation in allocationList:
+		for i in range(num_elements):
+			if((expandFuncCol != None)):
+				if ((expandFuncCol == i) and (allocation != allocationList[0])):
+					print string.ljust(str(expandFunc(allocation[i])), maxWidthsInEachCol[i]),
+				else:
+					print string.ljust(str(allocation[i]), maxWidthsInEachCol[i]),
+			else:
+				print string.ljust(str(allocation[i]), maxWidthsInEachCol[i]),
+		print "\n",
+
+def getField(field, res):
+	result = {
+		'hostname' : lambda x: x.getHostName(),
+		'busid' : lambda x: x.busID,
+		'type' : lambda x: x.getType(),
+		'index' : lambda x: ":" + str(x.getIndex()),
+		'gpu_index' : lambda x: str(x.getIndex())
+		}[field](res)
+	if(result == None):
+		result = ""
+	return result		
+	
+def getGPUInfo(resource):
+	resourceString = "GPU-"
+	resourceString += getField('gpu_index', resource) + ", "
+	return resourceString
+
+def getServerInfo(resource):
+	resourceString = getField('hostname', resource)
+	resourceString += getField('index', resource)
+	return resourceString
+
+def expandResources(resourceList):
+	resourceString = ""
+	num_gpus = 0
+	
+	for res in resourceList:
+ 		if (res.__class__ == vsapi.GPU):
+ 			num_gpus += 1
+		if (res.__class__ == vsapi.Server):
+			resourceString += getServerInfo(res) + " with "
+	resourceString += "%d GPUs"%(num_gpus)
+
+	# Remove extra pipe symbols at the end before returning the string
+	return resourceString.rstrip(" | ")
+
+def getResource(name, nameRGList):
+	element = filter(lambda x: x[0] == name, nameRGList)
+	# Filter returns a list with a single element
+	resource = element[0]
+	return resource
+
+def getFreeBusyResources(allocationList, nameRGList):
+	nameResources = {}
+	allRGs = resAccess.queryResources(vsapi.ResourceGroup())
+	allRGs = map(lambda x:vsutil.normalizeRG(x), allRGs)
+	# From the list of all available resources
+	# create a dict with the key as the tiled display name and the value as the
+	# set of resources in the format [(gpu_index, hostname), (gpu_index, hostname)...]
+	# Convert the value to a set for easier processing
+	for nameRG in nameRGList:
+		resList = []
+		hostName = ""
+		index = -1
+		for resGroup in nameRG[1]:
+			for serverGpu in resGroup:
+				if(serverGpu.__class__ == vsapi.Server):
+					hostName = serverGpu.getHostName()
+				
+			for serverGpu in resGroup:
+				if(serverGpu.__class__ == vsapi.GPU):
+					index = serverGpu.getIndex()
+					resList.append((index, hostName))
+		nameResources[nameRG[0]] = Set(resList)
+
+	freeRGTable = []
+	busyRGTable = []
+	userNameRes = {}
+	# From the list of allocated resources
+	# create another dictionary with user name as the key and
+	# the list (gpu_index, hostname) tuples as the value.
+	# Convert the list to a Set for easier processing
+	for allocation in allocationList:
+		resources = allocation['resources']
+		gpuHostList = []
+		for res in resources:
+			if res.__class__ == vsapi.GPU:
+				gpuHostList.append((res.getIndex(), res.getHostName()))
+		userNameRes[allocation['user']] = Set(gpuHostList)
+
+	# The code that generates the tables that get printed
+	# Go through the set of all the resources
+	for k,v in nameResources.iteritems():
+		busyFlag = 0
+		# Iterate through all the allocated resources
+		for k1, v1 in userNameRes.iteritems():
+			# Even if one resource among all the resources has been allocated by any user, set the busy flag
+			# for this tiled display.
+			# The busy flag is used here, to determine if any tiled display is free, all the resources in the
+			# tiled display should be unallocated. So go through all the allocated displays and check if any of
+			# them have an intersection, if none of them have then the busyFlag is 0, add the resource to the
+			# free table.
+			if v1.intersection(v):
+				busyRGTable.append([k1, k])
+				busyFlag = 1
+		# If all the resources in this tiled display are free
+		if busyFlag != 1:
+			resourceString = ""
+			for rg in allRGs:
+				if(rg.getName() == k):
+					td = rg.getHandlerObject()
+					layout = td.getParam('block_display_layout')
+					blocks = td.getParam('num_blocks')
+					# The size of TD is got multiplying the same x and y sizes
+					# with the corresponding x and y of the block layout
+					size = [layout[0]*blocks[0], layout[1]*blocks[1]]
+					resourceString += "%dx%d driven by "%(size[0], size[1])
+					for resList in rg.getResources():
+						for res in resList:
+							if isinstance(res, vsapi.Server):
+								if res.getHostName() is not None:
+									resourceString += res.getHostName()
+								else:
+									resourceString += "<undefined host>"
+						for res in resList:
+							if isinstance(res, vsapi.GPU):
+								resourceString += " GPU-%d"%(res.getIndex())
+								if res is not resList[-1]:
+									resourceString += " and"
+						if resList is not rg.getResources()[-1]:
+							resourceString = resourceString.rstrip(" and")
+							resourceString += ", "
+					freeRGTable.append([rg.getName(), resourceString])
+	return (freeRGTable, busyRGTable)
+
+def createRGList(allRGs):
+	allRGList = []
+	for rg in allRGs:
+		resourceString = ""
+		td = rg.getHandlerObject()
+		# Only do this for a tiled display resource group
+		if(isinstance(td, vsapi.TiledDisplay)):
+			layout = td.getParam('block_display_layout')
+			blocks = td.getParam('num_blocks')
+			size = [layout[0]*blocks[0], layout[1]*blocks[1]]
+			resourceString += "%dx%d driven by "%(size[0], size[1])
+			for resList in rg.getResources():
+				hostName = ""
+				for res in resList:
+					if isinstance(res, vsapi.Server):
+						if res.getHostName() is not None:
+							resourceString += res.getHostName()
+						else:
+							resourceString += "<undefined host>"
+
+				for res in resList:
+					if isinstance(res, vsapi.GPU):
+						resourceString += " GPU-%d"%(res.getIndex())
+						if res is not resList[-1]:
+							resourceString += " and"
+				if resList is not rg.getResources()[-1]:
+					resourceString = resourceString.rstrip(" and")
+					resourceString += ", "
+			allRGList.append([rg.getName(), resourceString, rg.getDescription()])
+	return allRGList
+
+def printResources(resAccess):
+	ret = resAccess.queryResources(vsapi.VizNode())
+	printInfo = []
+	print
+	for node in ret:
+		print "Node : %s, model '%s'"%(node.getHostName(), node.getType())
+		allRes = node.getResources()
+		allServers = vsapi.extractObjects(vsapi.Server, allRes)
+		normalServers = filter(lambda x: x.getType()=='normal', allServers)
+		if len(normalServers)>0:
+			print "  X Servers         :",
+			for srv in normalServers:
+				print "%2d "%(srv.getIndex()),
+			print
+		virtualServers = filter(lambda x: x.getType()=='virtual', allServers)
+		if len(virtualServers)>0:
+			print "  Virtual X Servers :",
+			for srv in virtualServers:
+				print "%2d "%(srv.getIndex()),
+			print
+		gpus = vsapi.extractObjects(vsapi.GPU, allRes)
+		if len(gpus)>0:
+			print "  GPUs :"
+			for gpu in gpus:
+				if gpu.getUseScanOut():
+					scanStr = ""
+				else:
+					scanStr = " (no display capability)"
+				if gpu.isSharable():
+					shareStr = " sharable by %d users via X server :%d"%(gpu.getShareLimit(), gpu.getSharedServerIndex())
+				else:
+					shareStr = ""
+				print "    %d, type '%s'%s%s"%(gpu.getIndex(), gpu.getType(), scanStr, shareStr)
+		slis = vsapi.extractObjects(vsapi.SLI, allRes)
+		if len(slis)>0:
+			print "  SLI bridges :"
+			for sli in slis:
+				if sli.getType()=="quadroplex":
+					print "    %d, internal to QuadroPlex containing GPUs %d and %d"%(sli.getIndex(), sli.getGPUIndex(0), sli.getGPUIndex(1))
+				else:
+					print "    %d, connecting GPUs %d and %d"%(sli.getIndex(), sli.getGPUIndex(0), sli.getGPUIndex(1))
+		kbds = vsapi.extractObjects(vsapi.Keyboard, allRes)
+		if len(kbds)>0:
+			print "  Keyboards :"
+			for kbd in kbds:
+				if kbd.getPhysAddr() is None:
+					addrStr = ""
+				else:
+					addrStr = " Physical Location %s"%(kbd.getPhysAddr())
+				print "    %d, type %s%s"%(kbd.getIndex(), kbd.getType(), addrStr)
+		mice = vsapi.extractObjects(vsapi.Mouse, allRes)
+		if len(mice)>0:
+			print "  Mice :"
+			for mouse in mice:
+				if mouse.getPhysAddr() is None:
+					addrStr = ""
+				else:
+					addrStr = " Physical Location %s"%(mouse.getPhysAddr())
+				print "    %d, type %s%s"%(mouse.getIndex(), mouse.getType(), addrStr)
+		print
+if __name__ == "__main__":
+	(options, args) = parseArgs(sys.argv)
+
+	try:
+		resAccess = vsapi.ResourceAccess()
+	except vsapi.VizError, e:
+		print >>sys.stderr, str(e)
+		sys.exit(-1)
+	
+	allocationList = resAccess.getAllocationList()
+
+	allRGs = resAccess.queryResources(vsapi.ResourceGroup())
+	allRGs = map(lambda x:vsutil.normalizeRG(x), allRGs)
+	allRGList = createRGList(allRGs)
+	nameRGList = []
+	for rg in allRGs:
+		# Only do this for tiled display resource group
+		if(isinstance(rg.getHandlerObject(), vsapi.TiledDisplay)):
+			nameRGList.append([rg.getName(), rg.getResources()])
+	if (options.all_resources):
+		printTable(allRGList,["Name", "Resources", "Description"], expandFuncCol=None, expandFunc=None)
+	elif(options.free or options.busy):
+		(freeRGTable, busyRGTable) = getFreeBusyResources(allocationList, nameRGList)
+		if(options.free):
+			printTable(freeRGTable, ["Name", "Resources"], expandFuncCol=None, expandFunc=None)
+		if(options.busy):
+			printTable(busyRGTable, ["Name", "Resource"], expandFuncCol=None, expandFunc=None)
+	elif options.show_resources:
+		printResources(resAccess)
+	else:
+		def jobRunTime(secsSinceEpoch):
+			totalSecs = (calendar.timegm(time.gmtime())-secsSinceEpoch)
+			secs = totalSecs%60
+			totalSecs -= secs
+			min = ((totalSecs)/60)%60
+			totalSecs -= (min*60)
+			hours = (totalSecs/60)%60
+			totalSecs -= (hours*3600)
+			days = totalSecs/(60*60*24)
+			rts = ''
+			if days>0:
+				rts = '%dd '%(days)
+			rts +='%02d:%02d:%02d'%(hours,min,secs)
+			return rts
+		
+		printList = map(lambda x:[x['allocId'],x['user'],jobRunTime(x['startTime']),x['appName'], x['resources']], allocationList)
+		printTable(printList, ["Id","User","Run Time", "Application", "Resources"], expandFuncCol=4, expandFunc=expandResources)

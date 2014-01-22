@@ -1,0 +1,250 @@
+#!/usr/bin/env python
+
+# VizStack - A Framework to manage visualization resources
+
+# Copyright (C) 2009-2010 Hewlett-Packard
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+import vsapi
+import time
+from xml.dom import minidom
+from pprint import pprint
+import sys
+import os
+import time
+import optparse
+import tempfile
+import subprocess
+import copy
+import socket
+import vsutil
+
+class OptionParser (optparse.OptionParser):
+	def check_required (self, opt):
+		"""
+		Check for command-line arguments that are mandatory. Accepts the arguments that are mandatory
+		as arguments.
+		"""
+		option = self.get_option(opt)
+		# Assumes the option's 'default' is set to None!
+		if getattr(self.values, option.dest) is None:
+			self.print_help()
+			self.error("%s option not supplied" %(option))
+
+def createConfig(fastNetworkMap, rows, cols, allocRG, allocId):
+	"""
+	Create the configuration file needed to run Avizo on a tiled-display. This is given
+	as an argument to the client. This file needs to be in the same path on all the machines
+	where the clusterdaemon is running. So this file is copied to all the nodes also.
+	"""
+	tileDeltaY = 1.0/rows
+	tileDeltaX = 1.0/cols
+	layoutConfig = allocRG.getHandlerObject().getLayoutMatrix()
+	try:
+		tmpfile = tempfile.NamedTemporaryFile()
+	except IOError, e:
+		print >> sys.stderr, e.str()
+		return None
+	print >>tmpfile, "#Inventor V2.1 ascii"
+	print >>tmpfile, "\n"
+	print >>tmpfile, "Separator {"
+	rowrange = range(rows)
+	threadGroup = 0
+	for row in range(rows):
+		for col in range(cols):
+			#threadGroup = threadGroup + 1
+			thisScreen = layoutConfig[row][col]['screen']
+			thisServer = thisScreen.getServer()
+ 			print >>tmpfile, "\tSoScreen {"
+			print >>tmpfile, "\t\tname\t%s"%(thisServer.hostName)
+ 			print >>tmpfile, "\t\thostname\t%s"%(fastNetworkMap[thisServer.hostName]) # use the fast network to get to the node
+ 			print >>tmpfile, "\t\tdisplay\t:%d.%d"%(thisServer.getIndex(), thisScreen.getScreenNumber())
+			print >>tmpfile, "\t\tchannelOrigin\t0 0"
+			print >>tmpfile, "\t\tchannelSize\t1 1"
+			print >>tmpfile, "\t\ttileOrigin\t%f %f"%(col*tileDeltaX, ((rows - 1) - row)*tileDeltaY)
+			print >>tmpfile, "\t\ttileSize\t%f %f"%(tileDeltaX, tileDeltaY)
+			print >>tmpfile, "\t\tthreadGroup\t%d"%(threadGroup)
+			print >>tmpfile, "\t}"
+ 			print >>tmpfile, "\tSoVRProperty {"
+ 			print >>tmpfile, "\t\tkeepMasterViewerInsideGUI\tTRUE"
+ 			print >>tmpfile, "\t}"
+	print >>tmpfile, "}"
+	print >>tmpfile, "\n"
+	tmpfile.flush() # Cause a write to happen
+
+	# Don't close the file! once the file is closed it is automatically deleted
+	#tmpfile.close()
+	return tmpfile
+
+def parseArgs(arg_list):
+	parser = OptionParser()
+	parser.add_option("-t", "--tiled-display", action="store", type="string", dest="display_tile", help="The tiled display to use for the job.")
+	parser.add_option("-m", "--display-mode", dest="display_mode", help="The resolution to run the X server at.")
+	parser.add_option("--no-framelock", action="store_true", dest="disable_framelock", default=False, help="VizStack sets up framelock if this is enabled in the configuration of the used tiled display. Framelock provides hardware synchronization of all the displays in the Tiled Display. If your framelock chain or tiled display is not setup properly for framelock, then Avizo will not be started. Use this option if framelock setup fails, but you want to use the tiled display without framelock")
+	(options, args) = parser.parse_args(sys.argv[1:])
+	parser.check_required("-t")
+	return (options, args)
+
+# A display group controlling 2 displays which are side by side, each with a resolution of 1600x1200 and drive by 2 X server.
+# Each X server runs on 1 GPU on the same machine.
+
+(options, args) = parseArgs(sys.argv)
+
+if os.environ.has_key('AVIZO_HOME'):
+	avizoPrefix = os.environ['AVIZO_HOME']
+else:
+	print >> sys.stderr, "Error: Please set the AVIZO_HOME environment variable to point to your Avizo installation"
+	sys.exit(-1)
+
+if(options.display_tile):
+	display_group = options.display_tile
+
+res = vsapi.ResourceAccess()
+
+# Allocate requested resources
+rg = vsapi.ResourceGroup(display_group)
+alloc1 = res.allocate([rg])
+
+resources = alloc1.getResources()
+
+allocRG = resources[0]
+
+# Force all bezels to be included, irrespective of 
+# position. This will ensure that all screens 
+# configured are the same size this is assumed by 
+# the config file generation code in createConfig()
+tdInUse = allocRG.getHandlerObject()
+tdInUse.setParam('bezels','all')
+
+def cleanUp():
+	# Kill all the X servers
+	alloc1.stopViz(res)
+	# Cleanup the allocated session
+	res.deallocate(alloc1)
+
+# Starts the X servers on the requested display group
+alloc1.setupViz(res)
+alloc1.startViz(res)
+
+# Framelock handling
+if tdInUse.getParam('framelock') and (not options.disable_framelock):
+	if not vsutil.isFrameLockAvailable(alloc1.getResources()):
+		print >>sys.stderr, "ERROR: Framelock is not available for this tiled display. Exiting..."
+		sys.exit(1)	
+	print "Enabling Frame Lock..."
+	try:
+		vsutil.enableFrameLock(alloc1.getResources())
+		print "Frame lock setup done"
+	except VizError, e:
+		print >>sys.stderr, "Exiting due to failure to enable frame lock. Reason: %s"%(str(e))
+		sys.exit(1)
+
+screenLayout = allocRG.getHandlerObject().getLayoutMatrix()
+
+processes = []
+
+(cols, rows) = allocRG.getHandlerObject().getLayoutDimensions() 
+
+# Create a mapping from the hostname to the fast network
+allNodes = res.queryResources(vsapi.VizNode())
+fastNetworkMap = {}
+for thisNode in allNodes:
+    fastNetworkMap[thisNode.getHostName()] = thisNode.getProperty('fast_network')
+
+# Create the config file for Avizo
+config_file = createConfig(fastNetworkMap, rows, cols, allocRG, alloc1.getId())
+
+# If we failed then exit with an error message
+if (config_file == None):
+	print >> sys.stderr, "Error: Failed to create config file"
+	cleanUp()
+	sys.exit(-1)
+
+# Propagate the config file to different nodes
+# We do this by run cat > /dir/path/filename using
+# srun on the target node where the file needs to be created and then
+# write to the process's standard input
+for col in range(cols):
+	for row in range(rows):
+		# Start from the beginning of the file
+		config_file.seek(0)
+		# Create the file on every server node, Avizo expects it this way.
+		hostname = screenLayout[row][col]['server'].getHostName()
+		# One can ssh -X to a host and run the Avizo script, and the display output of the host can also be part
+		# of the tiled display, in which case do no overwrite the original file.
+		if hostname not in [socket.gethostname(), 'localhost']:
+			cmd_args = ['/usr/bin/tee','%s'%(config_file.name)]
+			# Run the cat command on the remote node
+			p = screenLayout[row][col]['screen'].run(cmd_args, inFile = open(config_file.name,"r"), outFile = open("/dev/null", "w"))
+			p.wait()
+
+def removeConfig():
+	# Remove the avizo config file once the job is done. For debugging, comment these 3 lines out
+	for col in range(cols):
+		for row in range(rows):
+			hostname = screenLayout[row][col]['server'].getHostName()
+			if hostname not in [socket.gethostname(), 'localhost']:
+				screenLayout[row][col]['screen'].run(['/bin/rm', '-f', '%s'%(config_file.name)])
+	# The temp file is automatically removed
+	config_file.close()
+
+
+# Avizo does expects that on a node, there is only one "X Screen", because multiple copies of Avizo server cannot run on a single node.
+# So we create a dictionary of all the X servers corresponding to their hostnames. If more than 1 Server is runnnig on a single node we fail.
+# We also fail if a single X server on a node has more than 1 screen
+hostname_server = {}
+for server in vsapi.extractObjects(vsapi.Server, resources):
+	if(hostname_server.has_key(server.getHostName())):
+		hostname_server[server.getHostName()].append(server)
+	else:
+		hostname_server[server.getHostName()] = [server]
+
+for hostname,server_list in hostname_server.iteritems():
+	if (len(server_list) > 1):
+		print >> sys.stderr, "Error: More than 1 X server on a single node is not supported by Avizo"
+		cleanUp()
+		removeConfig()
+		sys.exit(-1)
+		
+	else:
+		if(len(server_list[0].getScreens()) > 1):
+			if (allocRG.getHandlerObject().getParam('combine_displays')==False):
+				print >> sys.stderr, "Error: Avizo does not support multiple screens on a single X server"
+				cleanUp()
+				removeConfig()
+				sys.exit(-1)
+		
+safeEnv = vsapi.sanitisedEnv()
+for col in range(cols):
+	for row in range(rows):
+ 		processes.append(screenLayout[row][col]['screen'].run(['/usr/bin/env','AVIZO_HOME=%s'%(avizoPrefix), '%s/bin/start'%(avizoPrefix), '-clusterdaemon'],launcherEnv=safeEnv))
+		
+# VirtualGL/TurboVNC support. If VGL_DISPLAY is set, then we're called from a TurboVNC desktop
+# with VirtualGL enabled. So we need to use "vglrun"
+if os.environ.has_key('VGL_DISPLAY'):
+	cmdPrefix = "/usr/bin/vglrun "
+else:
+	cmdPrefix = ""
+
+os.system('/usr/bin/env AVIZO_MULTITHREADED=true /usr/bin/env AVIZO_NO_CONTEXT_SHARING=true %s%s/bin/start -mt -config %s'%(cmdPrefix, avizoPrefix, config_file.name))
+
+# Remove the config file on all the nodes
+removeConfig()
+
+# Clean up everything before quitting
+cleanUp()
+

@@ -1,0 +1,43 @@
+<?xml version="1.0" ?>
+<!--
+
+The Quadro NVS 420.
+
+Has two GPUs on one card. Each GPU can drive either 2 single link DVI displays or
+2 displays at Dual-Link speeds using DisplayPort.
+
+This card doesn't have DVI/VGA outputs. Instead, it has a VHDCI port which needs
+to be connected to another adapter to get the actual display outputs.
+
+Scanout indexes 0 and 1 are used when a single-link DVI adapter is connected.
+Scanout indexes 2 and 3 are used when a DisplayPort adapter is connected.
+-->
+<gpu 
+ xmlns="http://www.hp.com"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+ xsi:schemaLocation="http://www.hp.com /opt/vizstack/share/schema/gpuconfig.xsd">
+
+		<model>Quadro NVS 420</model>
+		<vendor>NVIDIA Corporation</vendor>
+		<scanout_caps>
+			<index>0</index>
+			<type>digital</type>
+		</scanout_caps>
+		<scanout_caps>
+			<index>1</index>
+			<type>digital</type>
+		</scanout_caps>
+		<scanout_caps>
+			<index>2</index>
+			<type>digital</type>
+		</scanout_caps>
+		<scanout_caps>
+			<index>3</index>
+			<type>digital</type>
+		</scanout_caps>
+		<limits>
+			<max_width>8192</max_width>
+			<max_height>8192</max_height>
+		</limits>
+
+</gpu>
