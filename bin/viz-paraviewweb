@@ -1,0 +1,607 @@
+#!/usr/bin/env python
+
+# VizStack - A Framework to manage visualization resources
+
+# Copyright (C) 2009-2010 Hewlett-Packard
+# 
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+
+
+"""
+viz_paraview
+
+Run Paraview either on a tiled display or in distributed rendering mode. This script pops up the GUI on the local display
+on the requested display group.
+Example run on tiled display
+$ viz_paraview -t test-2x2
+example run in distributed rendering mode
+$ viz_paraview -r 4
+for runnin on 4 GPUs
+"""
+
+import vsapi
+import time
+from xml.dom import minidom
+from xml.parsers import expat
+from pprint import pprint
+import sys
+import os
+import time
+from pprint import pprint
+import optparse
+from optparse import OptionParser, OptionGroup
+import socket
+import subprocess
+import string
+import tempfile
+import vsutil
+
+# Default base server port
+default_base_server_port = 11110 # This is one less than the default port number, but we'll end up adding atleast 1 anyway in our calculations!
+
+mpiOptNames = { 'hpmpi': {}, 'mpich': {}, 'openmpi': {}}
+
+# Each type of MPI uses different options names for 
+# option type. E.g., HPMPI uses -f to pass an appfile name
+# where as OpenMPI uses --app. These differences are
+# abstracted out in the following hashes.
+mpiOptNames['hpmpi']['appfile'] = '-f'
+mpiOptNames['hpmpi']['varexport'] = '-e'
+mpiOptNames['hpmpi']['host'] = '-h'
+mpiOptNames['hpmpi']['nnodes'] = '-n'
+mpiOptNames['hpmpi']['LD_LIBRARY_PATH'] = '/opt/hpmpi/lib/linux_amd64'
+mpiOptNames['hpmpi']['mpirun'] = '/opt/hpmpi/bin/mpirun'
+
+mpiOptNames['mpich']['appfile'] = '-f'
+mpiOptNames['mpich']['varexport'] = '-env'
+mpiOptNames['mpich']['host'] = '-host'
+mpiOptNames['mpich']['nnodes'] = '-n'
+mpiOptNames['mpich']['LD_LIBRARY_PATH'] = '/usr/lib64/mpich2'
+mpiOptNames['hpmpi']['mpirun'] = 'mpirun'
+
+mpiOptNames['openmpi']['appfile'] = '--app'
+mpiOptNames['openmpi']['varexport'] = '-x'
+mpiOptNames['openmpi']['host'] = '-H'
+mpiOptNames['openmpi']['nnodes'] = '-np'
+mpiOptNames['openmpi']['LD_LIBRARY_PATH'] = None
+mpiOptNames['openmpi']['mpirun'] = 'mpirun'
+
+class OptionParser (optparse.OptionParser):
+    def check_required (self, opt):
+        option = self.get_option(opt)
+	
+        # Assumes the option's 'default' is set to None!
+        if getattr(self.values, option.dest) is None:
+            self.print_help()
+            self.error("%s option not supplied" %(option))
+
+def determineServerPort(rows, cols, layoutConfig, server_port):
+    global default_base_server_port
+
+    # If a server port is known, use it
+    if server_port is not None:
+        return server_port
+
+    rank0hostName = None
+    port_offset = 0
+    for row in range(rows):
+        for col in range(cols):
+            thisScreen = layoutConfig[row][col]['screen']
+            thisServer = thisScreen.getServer()
+            if(rank0hostName == None):
+                rank0hostName = thisServer.getHostName()
+            if thisServer.getHostName() == rank0hostName:
+                if thisScreen.isXineramaScreen:
+                    if row == 0 and col == 0:
+                        screens = thisServer.getScreens()
+                        for screen in screens:
+                            for gpu in screen.getGPUs():
+                                port_offset = port_offset | (1 << gpu.getIndex())
+                else:
+                    gpus = thisScreen.getGPUs()
+                    for gpu in gpus:
+                        port_offset = port_offset | (1 << gpu.getIndex())
+    server_port = default_base_server_port + port_offset
+    return server_port
+
+def createParaviewTDConfigFile(fastNetworkMap, mpilib, rows, cols, allocRG, allocId, port):
+    global mpiOptNames
+    tileDeltaY = 1.0/rows
+    tileDeltaX = 1.0/cols
+    layoutConfig = allocRG.getHandlerObject().getLayoutMatrix()
+    try:
+        f = tempfile.NamedTemporaryFile()
+    except IOError, e:
+        print >> sys.stderr, e.str()
+        return None
+    for row in range(rows):
+	for col in range(cols):
+            thisScreen = layoutConfig[row][col]['screen']
+            thisServer = thisScreen.getServer()
+            cmd = ""
+            cmd += "%s %s "%(mpiOptNames[mpilib]['host'], fastNetworkMap[thisServer.getHostName()])
+            cmd += "%s 1 "%(mpiOptNames[mpilib]['nnodes'])
+            if mpiOptNames[mpilib]['LD_LIBRARY_PATH'] is not None:
+                cmd += "%s LD_LIBRARY_PATH=%s "%(mpiOptNames[mpilib]['varexport'], mpiOptNames[mpilib]['LD_LIBRARY_PATH'])
+            cmd += "%s DISPLAY=:%d.%d "%(mpiOptNames[mpilib]['varexport'], thisServer.getIndex(), thisScreen.getScreenNumber())
+            cmd += "pvserver %s -sp=%d"%("-tdx=%d -tdy=%d"%(cols, rows), port)
+            print >>f, cmd
+    f.flush()
+    return f
+
+def createParaviewDRAppFile(fastNetworkMap, mpilib, allServers, allocId, port, share_count):
+    try:
+        appfileobj = tempfile.NamedTemporaryFile()
+    except IOError, e:
+        print >> sys.stderr, e.str()
+        return None
+    for thisServer in allServers:
+        thisScreen = thisServer.getScreen(0)
+        cmd = ""
+        cmd += "%s 1 "%(mpiOptNames[mpilib]['nnodes'])
+        cmd += "%s %s "%(mpiOptNames[mpilib]['host'], fastNetworkMap[thisServer.getHostName()])
+        if mpiOptNames[mpilib]['LD_LIBRARY_PATH'] is not None:
+            cmd += "%s LD_LIBRARY_PATH=%s "%(mpiOptNames[mpilib]['varexport'], mpiOptNames[mpilib]['LD_LIBRARY_PATH'])
+        cmd += "%s DISPLAY=:%d.%d "%(mpiOptNames[mpilib]['varexport'], thisServer.getIndex(), thisScreen.getScreenNumber())
+        cmd += "pvserver -sp=%d"%(port)
+        # Enable offscreen rendering, so two processes assigned to the 
+        # same GPU will not clash on the same framebuffer
+        # Also, enabling offscreen rendering guarantees correct rendering
+        # irrespective of the framebuffer resolution.
+        cmd += " --use-offscreen-rendering"
+        # Replicate command as many times the GPU is shared
+        for i in range(share_count):
+            print >>appfileobj, cmd
+    appfileobj.flush()
+    return appfileobj
+
+def createParaviewServerFile(client_needed, mpilib, server_hostname, allocId, port, no_shared_home=False):
+    home_dir = os.environ['HOME']
+    server_file = '%s/.config/ParaView/servers.pvsc'%(home_dir)
+    # Override localhost with local name
+    if server_hostname=='localhost':
+        server_hostname = socket.gethostname()
+    server_url = 'cs://%s:%d'%(server_hostname, port)
+
+    # Don't try to create/modify a client file if this 
+    # script won't start the client
+    if not client_needed:
+        return server_url
+
+    # If the file does not exist create an empty file
+    if not os.path.exists(server_file):
+        f = open(server_file, 'w')
+        f.close()
+    # If the file is empty, write a valid XML string to it first
+    if os.path.getsize(server_file) == 0:
+        f = open(server_file, 'w')
+        print >>f, '<?xml version="1.0" ?>\n<Servers/>'
+        f.close()
+    # Parse the XML file servers.pvsc
+    try:
+        xmldoc = minidom.parse(server_file)
+    except expat.ExpatError, e:
+        print >> sys.stderr, "ExpatError: Parse Error, %s"%(e.__str__())
+        return None
+
+    reflist = xmldoc.getElementsByTagName('Server')
+    server_found = 0
+    new_child = None
+    for node in reflist:
+        # Check if the node is not of the form <Server/> i.e., an empty node with no attributes
+        if (node.hasAttributes()):
+            # If this has attributes and it has the name attribute
+            if (node.attributes['name'].nodeValue == "%s_%d"%(server_hostname, port)):
+                server_found = 1
+                # Check if the resource also matches
+                if (node.attributes['resource'].nodeValue == server_url):
+                    server_found = 1
+                else: # The resource is different, so modify the resource to meet this run
+                    node.attributes['resource'].nodeValue = server_url
+        else: # If the node is devoid of attributes, then add the attributes to this empty node (don't create a new one)
+            node.attributes['name'] = "%s_%d"%(server_hostname, port)
+            node.attributes['resource'] = server_url
+            new_child = xmldoc.createElement('ManualStartup')
+            node.appendChild(new_child)
+            server_found = 1
+    # If the node was not found, create a new child and append it to the file
+    if not server_found:
+        new_child = xmldoc.createElement('Server')
+        new_child.setAttribute('name', "%s_%d"%(server_hostname, port))
+        new_child.setAttribute('resource', server_url)
+        grandchild = xmldoc.createElement('ManualStartup')
+        new_child.appendChild(grandchild)
+        #new_child.attributes['resource'].nodeValue = server_url
+        xmldoc.childNodes[0].appendChild(new_child)
+
+    # Save the XML file, I could do xmldoc.writexml(open(server_file, 'w')), but this formats it better
+    xmldoc.writexml(open(server_file, 'w'))
+    #newdoc = xmldoc.toprettyxml()
+    #f = open(server_file, 'w')
+    #f.write(newdoc)
+    #f.close()
+    return server_url # For server only mode
+
+def cleanupServerFile(server_url):
+    home_dir = os.environ['HOME']
+    server_file = '%s/.config/ParaView/servers.pvsc'%(home_dir)
+    server_name = server_url.replace('cs://','').replace(':','_')
+    # Parse the XML file servers.pvsc
+    try:
+        xmldoc = minidom.parse(server_file)
+    except expat.ExpatError, e:
+        print >> sys.stderr, "ExpatError: Parse Error, %s"%(e.__str__())
+        return None
+
+    reflist = xmldoc.getElementsByTagName('Server')
+    for node in reflist:
+        # Check if the node is not of the form <Server/> i.e., an empty node with no attributes
+        if (node.hasAttributes()):
+            # If this has attributes and it has the name attribute
+            if (node.attributes['name'].nodeValue == server_name):
+                parent = node.parentNode
+                parent.removeChild(node)
+
+    xmldoc.writexml(open(server_file, 'w'))
+
+# Used only in Distributed Rendering Mode (DR)    
+def createParaviewDRFiles(client_needed, fastNetworkMap, mpilib, server, allServers, allocId, port, share_count):
+    server_url = createParaviewServerFile(client_needed, mpilib, server, allocId, port)
+    return (server_url, createParaviewDRAppFile(fastNetworkMap, mpilib, allServers, allocId, port, share_count))
+
+def parseArgs(arg_list):
+	parser = OptionParser()
+	group = OptionGroup(parser, "Resource Allocation Options")
+        group.add_option("-r", "--render-servers", action="store", type="int", dest="num_render_gpus", help="The number of render GPUs to use for parallel (offscreen) rendering.")
+	group.add_option("-t", "--tiled-display", action="store", type="string", dest="display_tile", help="Use this option to render images to a specific tiled display.")
+	group.add_option("-x", "--exclusive", dest="exclusive", action="store_true", default=False, help="Allocate dedicated GPUs for rendering. By default, shared GPUs are allocated for offscreen rendering.")
+	parser.add_option_group(group)
+	group = OptionGroup(parser, "Additional Resource Allocation Options")
+	group.add_option("--specific-gpus", dest="specific_gpus", action="store_true", default=None, help="Use this if you want to allocate specific GPUs. Use the -a option one or more times to specify the GPUs you need. All GPUs are allocated with exclusive access, and will be used for parallel rendering with paraview.")
+	group.add_option("--specific-nodes", dest="specific_nodes", action="store_true", default=None, help="Use this if you want to allocate all GPUs on specific nodes. Use the -a option one or more times to specify the nodes you need. All GPUs are allocated with exclusive access, and will be used for parallel rendering with paraview.")
+	group.add_option("-a", "--allocate-from", dest="allocate_from", action="append", help="Allocate a specific GPU/all GPUs on a node (depending on whether --specific-gpus or --specific-nodes is used). This option can be used more than once.")
+	parser.add_option_group(group)
+	group = OptionGroup(parser, "ParaView Server Options")
+        group.add_option("-p", "--port", action="store", type="int", dest="server_port", help="The port on which the server runs. This is typically determined dynamically based on the GPUs allocated for ParaView on the node that runs the server process. Use this option if you need to force the server to run on a specific port.")
+        group.add_option("-c", "--connect-to", action="store", type="string", dest="connect_to", help="Connect to a listening Paraview client. You could use this if outgoing connections are allowed by the firewall.")
+	parser.add_option_group(group)
+	group = OptionGroup(parser, "Tiled Display Options")
+	group.add_option("-m", "--display-mode", dest="display_mode", help="The resolution to run the displays at, applicable only with -t.")
+	group.add_option("--no-framelock", action="store_true", dest="disable_framelock", default=False, help="VizStack sets up framelock if this is enabled in the configuration of the used tiled display. Framelock provides hardware synchronization of all the displays in the Tiled Display. If your framelock chain or tiled display is not setup properly for framelock, then ParaView will not be started. Use this option if framelock setup fails, but you want to use the tiled display without framelock")
+	parser.add_option_group(group)
+	group = OptionGroup(parser, "Additional Options")
+	group.add_option("-S", "--gpu-share-count", action="store", type="int", default=1, dest="share_count", help="Share an allocated GPU with these many pvserver processes. Effective only with -r")
+        group.add_option("-l", "--local", action="store_true", dest="local_only", default=False, help="Use this option if you want the script to start a ParaView client on the local desktop. By default, only the ParaView server is started, allowing you to connect to the ParaView server using the ParaView client running on your desktop.")
+        group.add_option("--mpilib", action="store", type="string", dest="mpilib", default="openmpi", help="The MPI library that should be used, currently the values supported are 'hpmpi','mpich' and 'openmpi'.")
+	parser.add_option_group(group)
+
+        (options, args) = parser.parse_args(sys.argv[1:])
+        if ((options.display_tile != None) and (options.num_render_gpus != None)):
+            print >> sys.stderr, "Error: Both -t and -r cannot be specified together."
+            print >> sys.stderr, "Please specify -t for tiled display (sort-first) and -r if you want to do distributed rendering (sort-last)"
+            sys.exit(-1)
+        if(options.num_render_gpus and options.display_mode):
+            print >> sys.stderr, "Error: -m may not be used with sort-last rendering on multiple GPUs."
+            sys.exit(-1)
+        if(options.local_only==True) and (options.connect_to is not None):
+            print >> sys.stderr, "Error: You can't use reverse connection(-c|--connect-to) when you have opted to run a local client (-l|--local)"
+            sys.exit(-1)
+        if(options.num_render_gpus):
+            if options.share_count<1:
+                print >> sys.stderr, "Error: Bad value for GPU Share Count(%d). GPU Share Count should be >=1"%(options.share_count)
+                sys.exit(-1)
+	return (options, args)
+
+def distributedRenderingMode(client_needed, allServers, fastNetworkMap, mpilib, server_port):
+    global default_base_server_port
+
+    # Master runs on the first server
+    masterHost = allServers[0].getHostName()
+
+    # If a server port is not given, compute it
+    if server_port is None:
+        # Automatically determine the port, this is needed so that more than one users 
+        # on sharing a node (by sharing the GPU) do not bump into each other
+        # by using the same port
+        port_offset = 0
+        # All GPUs on the master host contribute to computation of the port number
+        for srv in allServers:
+            if srv.getHostName() == masterHost:
+                for scr in srv.getScreens():
+                    allGPUs = scr.getGPUs()
+                    for gpu in allGPUs:
+                        port_offset = port_offset | (1 << gpu.getIndex())
+
+        server_port = default_base_server_port + port_offset
+    
+    # The first one is the display_group, the rest are the render gpus, so iterate only through render resources.
+    # The render resources are of the form [GPU-0, Server-0, GPU-1, Server-1,...,GPU-n, Server-n], so iterate in steps of 2.
+    (server_url, config_file) = createParaviewDRFiles(client_needed, fastNetworkMap, mpilib, masterHost, allServers, alloc1.getId(), server_port, options.share_count)  # resources[0][1] -> will be the server with a rank of 0
+    #os.system('cat %s'%(config_file.name))
+    client_cmd = [ 'paraview', '-s=%s'%(server_url.replace("cs://","").replace(":","_")) ] # -tdx=%d -tdy=%d'%(cmdPrefix, masterHost, cols, rows)
+    server_cmd = [ mpiOptNames[mpilib]['mpirun'], mpiOptNames[mpilib]['appfile'], config_file.name ]
+    return (alloc1, client_cmd, server_cmd, config_file, server_url, allServers[0].getScreen(0))
+
+def tiledDisplayMode(client_needed, fastNetworkMap, mpilib, res_access, tiled_display, display_mode, port):
+    # Allocate requested resources
+    rg = vsapi.ResourceGroup(tiled_display)
+    alloc1 = res_access.allocate([rg])
+    resources = alloc1.getResources()
+    allocRG = resources[0]
+    tdInUse = allocRG.getHandlerObject()
+    # Setup a display mode if needed
+    if display_mode is not None:
+        tdInUse.setParam('display_mode', display_mode)
+    # Force all bezels to be included.
+    # This ensures that all X screens configured will have the 
+    # same size; hence ParaView's tiled display rendering will
+    # work just fine.
+    tdInUse.setParam('bezels', 'all')
+    allocId = alloc1.getId()
+    screenLayout = tdInUse.getLayoutMatrix()
+    thisScreen = screenLayout[0][0]['screen']
+    screenResolution = thisScreen.getFBProperty('resolution')
+    thisServer = thisScreen.getServer()
+    (cols, rows) = allocRG.getHandlerObject().getLayoutDimensions()
+    server_port = determineServerPort(rows, cols, allocRG.getHandlerObject().getLayoutMatrix(), port)
+    config_file = createParaviewTDConfigFile(fastNetworkMap, mpilib, rows, cols, allocRG, allocId, server_port)
+    server_url = createParaviewServerFile(client_needed, mpilib, thisServer.getHostName(), allocId, server_port)
+    client_cmd = [ mpiOptNames[mpilib]['mpirun'], 'paraview', '-s=%s'%(server_url.replace("cs://","").replace(":","_")) ]
+    server_cmd = [ mpiOptNames[mpilib]['mpirun'], mpiOptNames[mpilib]['appfile'], config_file.name ]
+    return (alloc1, client_cmd, server_cmd, config_file, server_url, thisScreen)
+
+# A display group controlling 2 displays which are side by side, each with a resolution of 1600x1200 and drive by 2 X server.
+# Each X server runs on 1 GPU on the same machine.
+
+(options, args) = parseArgs(sys.argv)
+
+display_mode = options.display_mode
+
+if options.mpilib not in mpiOptNames.keys():
+    print "Unsupported MPI library, must be one of %s"%(mpiOptNames.keys())
+    sys.exit(-1)
+
+mpilib = options.mpilib
+
+opts = 0
+for arg in [options.display_tile, options.num_render_gpus, options.specific_gpus, options.specific_nodes]:
+	if arg is not None: opts += 1
+
+if opts == 0:
+    print "One of the options -t, -r, --specific-gpus, --specific-nodes is required. Can't run without either of these arguments."
+    sys.exit(-1)
+
+if opts > 1:
+    print "Only one of the options -t, -r, --specific-gpus, --specific-nodes can be used."
+    sys.exit(-1)
+
+global ra
+ 
+ra = vsapi.ResourceAccess()
+rg = None
+
+
+display_mode = None
+if options.display_mode:
+    display_mode = options.display_mode
+
+# Specific GPUs or nodes mean exclusive GPU access
+if options.specific_gpus or options.specific_nodes:
+    options.exclusive = True
+
+server_port = options.server_port
+
+# Create a mapping from the hostname to the fast network
+allNodes = ra.queryResources(vsapi.VizNode())
+fastNetworkMap = {}
+for thisNode in allNodes:
+    fastNetworkMap[thisNode.getHostName()] = thisNode.getProperty('fast_network')
+
+server_url = None
+if(options.display_tile):
+    (alloc1, client_cmd, server_cmd, config_file, server_url, runner) = tiledDisplayMode(options.local_only, fastNetworkMap, mpilib, ra, options.display_tile, display_mode, server_port)
+else:
+    hostList = []
+    uniqHostList = []
+    indexList = []
+    if options.allocate_from is not None:
+        # Get a list of all hostnames from the SSM
+        nodeList = ra.queryResources(vsapi.VizNode())
+        validHostList = []
+        for node in nodeList:
+            validHostList.append(node.getHostName())
+
+        if options.specific_gpus:
+            for host in options.allocate_from:
+                parts = host.split("/")
+                hostList.append(parts[0])
+                indexList.append(int(parts[1]))
+        else:
+            hostList = options.allocate_from
+
+        # Find out what's not valid
+        invalidHostNames = filter(lambda x: x not in validHostList, hostList)
+
+        # And print them out
+        if len(invalidHostNames)>0:
+            errMsg = "The following hostname(s) specified on the command line are invalid\n%s"%(invalidHostNames)
+            errMsg += "\nPlease ensure that they are indeed part of this system."
+            print >>sys.stderr, errMsg
+            sys.exit(-1)
+
+        for name in hostList:
+            if name not in uniqHostList:
+                uniqHostList.append(name)
+
+    if options.specific_gpus:
+        spec = []
+        for i in range(len(hostList)):
+            spec.append([vsapi.GPU(hostName=hostList[i], resIndex=indexList[i]), vsapi.Server()])
+    elif options.specific_nodes:
+        spec = []
+        for i in range(len(hostList)):
+            spec.append(vsapi.VizNode(hostList[i]))
+    elif options.exclusive:
+        spec = [[ vsapi.GPU(), vsapi.Server() ]]*options.num_render_gpus
+    else:
+        spec = [ vsapi.GPU(isShared=True) ]*options.num_render_gpus
+
+    alloc1 = ra.allocate(spec)
+    display_res = [1024,768] # choose a low resolution to run the servers at. Why waste memory on a large FB?
+    resources = alloc1.getResources()
+    gsList = []
+    for resource in resources:
+        if options.specific_nodes:
+            allNodeServers = vsapi.findMatchingObjects(vsapi.Server, vsapi.Server(), resource)
+            allNodeGPUs = vsapi.findMatchingObjects(vsapi.GPU, vsapi.GPU(), resource)
+            for idx in range(len(allNodeGPUs)):
+                gsList.append([allNodeGPUs[idx], allNodeServers[idx]])
+        elif options.specific_gpus:
+            gsList.append([resource[0], resource[1]])
+        elif options.exclusive:
+            gsList.append([resource[0], resource[1]])
+        else:
+            gsList.append([resource, resource.getSharedServer()])
+
+    allServers = []
+    for gs in gsList:
+        gpu = gs[0]
+        srv = gs[1]
+
+        scr = vsapi.Screen(0)
+        if gpu.getAllowNoScanOut():
+            gpu.clearScanouts()
+            scr.setFBProperty('resolution',display_res)
+        else:
+            # Allow GeForce GPUs to work by configuring 
+            # a dummy scanout if needed
+            if len(gpu.getScanouts())==0:
+                sc = gpu.getScanoutCaps()
+                gpu.setScanout(0, 'HP LP2065', sc[0][0])
+        scr.setGPU(gpu)
+        srv.addScreen(scr)
+        allServers.append(srv)
+
+    (alloc1, client_cmd, server_cmd, config_file, server_url, runner) = distributedRenderingMode(options.local_only, allServers, fastNetworkMap, mpilib, server_port)
+
+if(alloc1 == None):
+    print >> sys.stderr, "Allocation failed"
+    sys.exit(-1)
+
+#Allocate the <n> pairs of GPUs and X servers
+# Starts the X servers on the requested display group
+alloc1.setupViz(ra)
+alloc1.startViz(ra)
+
+# Framelock Handling
+if (options.display_tile):
+	rg = alloc1.getResources()[0]
+	td = rg.getHandlerObject()
+	if td.getParam('framelock') and (not options.disable_framelock):
+		if not vsutil.isFrameLockAvailable(alloc1.getResources()):
+			print >>sys.stderr, "ERROR: Framelock is not available for this tiled display. Exiting"
+			sys.exit(1)	
+		print "Enabling Frame Lock..."
+		try:
+			vsutil.enableFrameLock(alloc1.getResources())
+			print "Frame lock setup done"
+		except VizError, e:
+			print >>sys.stderr, "Exiting due to failure to enable frame lock. Reason: %s"%(str(e))
+			sys.exit(1)
+
+# Setup environment variables for MPICH2 and ParaView
+os.environ['PATH']=os.environ['PATH']+os.path.pathsep+'/opt/paraview/bin'
+if(mpilib == "mpich"):
+    if os.environ.has_key('LD_LIBRARY_PATH'):
+        if os.environ['LD_LIBRARY_PATH'] != None:
+            os.environ['LD_LIBRARY_PATH']=os.environ['LD_LIBRARY_PATH']+os.path.pathsep+'/usr/lib64/mpich2/'
+        else:
+            os.environ['LD_LIBRARY_PATH']=os.path.pathsep+'/usr/lib64/mpich2/'
+elif mpilib=='hpmpi':
+    if os.environ.has_key('LD_LIBRARY_PATH'):
+        if os.environ['LD_LIBRARY_PATH'] != None:
+            os.environ['LD_LIBRARY_PATH']=os.environ['LD_LIBRARY_PATH']+os.path.pathsep+'/opt/hpmpi/lib/linux_amd64/'
+        else:
+            os.environ['LD_LIBRARY_PATH']=os.path.pathsep+'/opt/hpmpi/lib/linux_amd64'
+
+# VirtualGL/TurboVNC support. If VGL_DISPLAY is set, then we're called from a TurboVNC desktop
+# with VirtualGL enabled. So we need to use "vglrun"
+if os.environ.has_key('VGL_DISPLAY'):
+    client_cmd =  ["/usr/bin/vglrun"]+client_cmd
+
+if options.connect_to is not None:
+    server_cmd += ["-rc","--client-host=%s"%(options.connect_to)]
+
+# Stereo handling for tiled displays.
+# we setup the servers to run in stereo but _not_ the client. The paraview
+# client shows geometry in lowered resolution anyway, so perhaps this makes sense. Also,
+# trying to start the client in stereo might fail if the desktop server does not support
+# it. If some day you need the client running in stereo, it might be appropriate to add
+# another command line option for this.
+if options.display_tile is not None:
+    rg = alloc1.getResources()[0]
+    td = rg.getHandlerObject()
+    if td.getParam('stereo_mode') not in [None, "none"]:
+        server_cmd += ["--stereo"]
+
+#print 'Server command is :'
+#pprint(server_cmd)
+#print 'Client command is :'
+#pprint(client_cmd)
+
+# Start the MPI server
+print  >> sys.stderr, "Waiting 4 seconds for the MPI fabric to bring up the servers...",
+# 
+# Use mpirun, but not in the context of any scheduler (i.e. SLURM). Some versions of MPI
+# - e.g. OpenMPI integrate with SLURM, making it very difficult to run it in the context
+# of an allocation. OpenMPI's mpirun, e.g. cannot be run using mpirun since it takes the
+# environment from srun.
+#
+# There is one downside of doing this : when somebody kills the job using 'vs-kill', the
+# X servers will get killed, but pieces of the job will remain in an uncleaned state.
+#
+server_proc = subprocess.Popen(server_cmd)
+time.sleep(4)
+
+if options.local_only:
+    print 'Starting ParaView client on your local desktop.'
+    client_proc = subprocess.Popen(client_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    print 'Waiting for ParaView client to exit...'
+    client_proc.wait()
+    print 'Client proc exited'
+    server_proc.kill()
+else:
+    print "The ParaView server has been started."
+    print "Please use the ParaView client to connect to %s"%(server_url)
+    print "The ParaView server will exit automatically after you have used it once."
+    print "To force termination of the ParaView server, terminate this script using ^C"
+    # Wait for server to exit. Server will exit after a client connects and disconnects once.
+    # TODO: is there any way to have a persistent server ?
+    server_proc.wait()
+
+print 'Cleaning up...'
+cleanupServerFile(server_url)
+
+# Cleanup the MPI file on the remote node
+runner.run(['/bin/rm','-f','%s'%(config_file.name)])
+
+# Kill all the X servers
+alloc1.stopViz(ra)
+
+config_file.close()
+
+# Cleanup the allocated session
+ra.deallocate(alloc1)
+
