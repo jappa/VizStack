@@ -11,3 +11,9 @@
 *.lai
 *.la
 *.a
+
+doc/manual/admin_guide.pdf
+
+doc/manual/dev_guide.pdf
+
+doc/manual/user_guide.pdf
