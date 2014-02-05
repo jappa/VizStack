@@ -141,6 +141,12 @@ def createParaviewTDConfigFile(fastNetworkMap, mpilib, rows, cols, allocRG, allo
     f.flush()
     return f
 
+def getDisplayVar(allServers):
+    for thisServer in allServers:
+        thisScreen = thisServer.getScreen(0)
+        cmd = ":%d.%d"%(thisServer.getIndex(), thisScreen.getScreenNumber())
+    return cmd
+
 def createParaviewDRAppFile(fastNetworkMap, mpilib, allServers, allocId, port, share_count):
     try:
         appfileobj = tempfile.NamedTemporaryFile()
@@ -556,8 +562,11 @@ if options.display_tile is not None:
     if td.getParam('stereo_mode') not in [None, "none"]:
         server_cmd += ["--stereo"]
 
-#print 'Server command is :'
-#pprint(server_cmd)
+os.environ['DISPLAY']=getDisplayVar(allServers)
+server_cmd = ['/gpfs/thirdparty/zenotech/home/jappa/apps/ParaviewGPU/Paraview/bin/pvpython','lib/paraview-4.1/site-packages/paraview/web/pv_web_visualizer.py','--content=share/paraview-4.1/www','--data-dir','/gpfs/thirdparty/zenotech/home/jappa/WEDGE','--port=8080']
+
+print 'Server command is :'
+pprint(server_cmd)
 #print 'Client command is :'
 #pprint(client_cmd)
 
