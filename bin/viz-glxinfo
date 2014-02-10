@@ -23,7 +23,7 @@ else:
 # X screen controls the allocated GPU
 screen.setGPU(gpu)
 # Configure the screen on our allocated server
-srv.setScreen(screen)
+srv.addScreen(screen)
 # Configure X server - this propagates the X server
 # configuration to the SSM
 alloc.setupViz(ra)
