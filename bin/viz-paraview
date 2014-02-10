@@ -161,6 +161,9 @@ def createParaviewDRAppFile(fastNetworkMap, mpilib, allServers, allocId, port, s
         # Also, enabling offscreen rendering guarantees correct rendering
         # irrespective of the framebuffer resolution.
         cmd += " --use-offscreen-rendering"
+        if options.connect_to is not None:
+            cmd += " -rc --client-host=%s"%(options.connect_to)
+
         # Replicate command as many times the GPU is shared
         for i in range(share_count):
             print >>appfileobj, cmd
@@ -557,7 +560,7 @@ if options.display_tile is not None:
         server_cmd += ["--stereo"]
 
 #print 'Server command is :'
-#pprint(server_cmd)
+pprint(server_cmd)
 #print 'Client command is :'
 #pprint(client_cmd)
 
