@@ -79,7 +79,8 @@ then
     else
         echo "RedHat EL"
         DISTRO=redhat
-        RPM_PATH=/usr/src/redhat
+        #RPM_PATH=/usr/src/redhat
+        RPM_PATH=~/rpmbuild
     fi
 fi
 if test -f /etc/debian_version;
