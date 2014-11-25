@@ -31,7 +31,8 @@ alloc.setupViz(ra)
 # Start X server
 alloc.startViz(ra)
 # Run glxinfo on the server
-proc = srv.run(sys.argv)
+proc = srv.run(sys.argv[1:])
+#print sys.argv[1:]
 proc.wait()
 # Stop the X servers
 alloc.stopViz(ra)
