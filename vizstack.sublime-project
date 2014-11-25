@@ -1,0 +1,20 @@
+{
+	"folders":
+	[
+		{
+			"path": "../VizStack",
+			"folder_exclude_patterns": ["build","dist",".settings"],
+			"file_exclude_patterns": [".project",".pydevproject"]
+		}
+	],
+	"build_systems":
+	[
+		{
+			"cmd": ["/Users/jamil/Documents/py27/bin/python", "-u","${file}"],
+    		"file_regex": "^[ ]*File \"(...*?)\", line ([0-9]*)",
+    		"selector": "source.python",            
+    		"name": "VizStack"
+		}
+	]
+
+}
